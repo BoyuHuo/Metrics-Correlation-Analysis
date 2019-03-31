@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ArrayConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2.converters</a> &gt; <span class="el_source">ArrayConverter.java</span></div><h1>ArrayConverter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2.converters;
+
+import java.io.IOException;
+import java.io.StreamTokenizer;
+import java.io.StringReader;
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+
+import org.apache.commons.beanutils2.ConversionException;
+import org.apache.commons.beanutils2.Converter;
+
+/**
+ * Generic {@link Converter} implementation that handles conversion
+ * to and from &lt;b&gt;array&lt;/b&gt; objects.
+ * &lt;p&gt;
+ * Can be configured to either return a &lt;i&gt;default value&lt;/i&gt; or throw a
+ * &lt;code&gt;ConversionException&lt;/code&gt; if a conversion error occurs.
+ * &lt;p&gt;
+ * The main features of this implementation are:
+ * &lt;ul&gt;
+ *     &lt;li&gt;&lt;b&gt;Element Conversion&lt;/b&gt; - delegates to a {@link Converter},
+ *         appropriate for the type, to convert individual elements
+ *         of the array. This leverages the power of existing converters
+ *         without having to replicate their functionality for converting
+ *         to the element type and removes the need to create a specifc
+ *         array type converters.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Arrays or Collections&lt;/b&gt; - can convert from either arrays or
+ *         Collections to an array, limited only by the capability
+ *         of the delegate {@link Converter}.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Delimited Lists&lt;/b&gt; - can Convert &lt;b&gt;to&lt;/b&gt; and &lt;b&gt;from&lt;/b&gt; a
+ *         delimited list in String format.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Conversion to String&lt;/b&gt; - converts an array to a
+ *         &lt;code&gt;String&lt;/code&gt; in one of two ways: as a &lt;i&gt;delimited list&lt;/i&gt;
+ *         or by converting the first element in the array to a String - this
+ *         is controlled by the {@link ArrayConverter#setOnlyFirstToString(boolean)}
+ *         parameter.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Multi Dimensional Arrays&lt;/b&gt; - it is possible to convert a &lt;code&gt;String&lt;/code&gt;
+ *         to a multi-dimensional arrays, by embedding {@link ArrayConverter}
+ *         within each other - see example below.&lt;/li&gt;
+ *     &lt;li&gt;&lt;b&gt;Default Value&lt;/b&gt;
+ *         &lt;ul&gt;
+ *             &lt;li&gt;&lt;b&gt;&lt;i&gt;No Default&lt;/i&gt;&lt;/b&gt; - use the
+ *                 {@link ArrayConverter#ArrayConverter(Class, Converter)}
+ *                 constructor to create a converter which throws a
+ *                 {@link ConversionException} if the value is missing or
+ *                 invalid.&lt;/li&gt;
+ *             &lt;li&gt;&lt;b&gt;&lt;i&gt;Default values&lt;/i&gt;&lt;/b&gt; - use the
+ *                 {@link ArrayConverter#ArrayConverter(Class, Converter, int)}
+ *                 constructor to create a converter which returns a &lt;i&gt;default
+ *                 value&lt;/i&gt;. The &lt;i&gt;defaultSize&lt;/i&gt; parameter controls the
+ *                 &lt;i&gt;default value&lt;/i&gt; in the following way:
+ *                 &lt;ul&gt;
+ *                    &lt;li&gt;&lt;i&gt;defaultSize &amp;lt; 0&lt;/i&gt; - default is &lt;code&gt;null&lt;/code&gt;&lt;/li&gt;
+ *                    &lt;li&gt;&lt;i&gt;defaultSize = 0&lt;/i&gt; - default is an array of length zero&lt;/li&gt;
+ *                    &lt;li&gt;&lt;i&gt;defaultSize &amp;gt; 0&lt;/i&gt; - default is an array with a
+ *                           length specified by &lt;code&gt;defaultSize&lt;/code&gt; (N.B. elements
+ *                           in the array will be &lt;code&gt;null&lt;/code&gt;)&lt;/li&gt;
+ *                 &lt;/ul&gt;
+ *             &lt;/li&gt;
+ *         &lt;/ul&gt;
+ *     &lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h3&gt;Parsing Delimited Lists&lt;/h3&gt;
+ * This implementation can convert a delimited list in &lt;code&gt;String&lt;/code&gt; format
+ * into an array of the appropriate type. By default, it uses a comma as the delimiter
+ * but the following methods can be used to configure parsing:
+ * &lt;ul&gt;
+ *     &lt;li&gt;&lt;code&gt;setDelimiter(char)&lt;/code&gt; - allows the character used as
+ *         the delimiter to be configured [default is a comma].&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;setAllowedChars(char[])&lt;/code&gt; - adds additional characters
+ *         (to the default alphabetic/numeric) to those considered to be
+ *         valid token characters.
+ * &lt;/ul&gt;
+ *
+ * &lt;h3&gt;Multi Dimensional Arrays&lt;/h3&gt;
+ * It is possible to convert a &lt;code&gt;String&lt;/code&gt; to mulit-dimensional arrays by using
+ * {@link ArrayConverter} as the element {@link Converter}
+ * within another {@link ArrayConverter}.
+ * &lt;p&gt;
+ * For example, the following code demonstrates how to construct a {@link Converter}
+ * to convert a delimited &lt;code&gt;String&lt;/code&gt; into a two dimensional integer array:
+ * &lt;/p&gt;
+ * &lt;pre&gt;
+ *    // Construct an Integer Converter
+ *    IntegerConverter integerConverter = new IntegerConverter();
+ *
+ *    // Construct an array Converter for an integer array (i.e. int[]) using
+ *    // an IntegerConverter as the element converter.
+ *    // N.B. Uses the default comma (i.e. &quot;,&quot;) as the delimiter between individual numbers
+ *    ArrayConverter arrayConverter = new ArrayConverter(int[].class, integerConverter);
+ *
+ *    // Construct a &quot;Matrix&quot; Converter which converts arrays of integer arrays using
+ *    // the pre-ceeding ArrayConverter as the element Converter.
+ *    // N.B. Uses a semi-colon (i.e. &quot;;&quot;) as the delimiter to separate the different sets of numbers.
+ *    //      Also the delimiter used by the first ArrayConverter needs to be added to the
+ *    //      &quot;allowed characters&quot; for this one.
+ *    ArrayConverter matrixConverter = new ArrayConverter(int[][].class, arrayConverter);
+ *    matrixConverter.setDelimiter(';');
+ *    matrixConverter.setAllowedChars(new char[] {','});
+ *
+ *    // Do the Conversion
+ *    String matrixString = &quot;11,12,13 ; 21,22,23 ; 31,32,33 ; 41,42,43&quot;;
+ *    int[][] result = (int[][])matrixConverter.convert(int[][].class, matrixString);
+ * &lt;/pre&gt;
+ *
+ * @version $Id$
+ * @since 1.8.0
+ */
+public class ArrayConverter extends AbstractConverter {
+
+    private final Class&lt;?&gt; defaultType;
+    private final Converter elementConverter;
+    private int defaultSize;
+<span class="fc" id="L135">    private char delimiter    = ',';</span>
+<span class="fc" id="L136">    private char[] allowedChars = new char[] {'.', '-'};</span>
+<span class="fc" id="L137">    private boolean onlyFirstToString = true;</span>
+
+    // ----------------------------------------------------------- Constructors
+
+    /**
+     * Construct an &lt;b&gt;array&lt;/b&gt; &lt;code&gt;Converter&lt;/code&gt; with the specified
+     * &lt;b&gt;component&lt;/b&gt; &lt;code&gt;Converter&lt;/code&gt; that throws a
+     * &lt;code&gt;ConversionException&lt;/code&gt; if an error occurs.
+     *
+     * @param defaultType The default array type this
+     *  &lt;code&gt;Converter&lt;/code&gt; handles
+     * @param elementConverter Converter used to convert
+     *  individual array elements.
+     */
+    public ArrayConverter(final Class&lt;?&gt; defaultType, final Converter elementConverter) {
+<span class="fc" id="L152">        super();</span>
+<span class="fc bfc" id="L153" title="All 2 branches covered.">        if (defaultType == null) {</span>
+<span class="fc" id="L154">            throw new IllegalArgumentException(&quot;Default type is missing&quot;);</span>
+        }
+<span class="fc bfc" id="L156" title="All 2 branches covered.">        if (!defaultType.isArray()) {</span>
+<span class="fc" id="L157">            throw new IllegalArgumentException(&quot;Default type must be an array.&quot;);</span>
+        }
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (elementConverter == null) {</span>
+<span class="fc" id="L160">            throw new IllegalArgumentException(&quot;Component Converter is missing.&quot;);</span>
+        }
+<span class="fc" id="L162">        this.defaultType = defaultType;</span>
+<span class="fc" id="L163">        this.elementConverter = elementConverter;</span>
+<span class="fc" id="L164">    }</span>
+
+    /**
+     * Construct an &lt;b&gt;array&lt;/b&gt; &lt;code&gt;Converter&lt;/code&gt; with the specified
+     * &lt;b&gt;component&lt;/b&gt; &lt;code&gt;Converter&lt;/code&gt; that returns a default
+     * array of the specified size (or &lt;code&gt;null&lt;/code&gt;) if an error occurs.
+     *
+     * @param defaultType The default array type this
+     *  &lt;code&gt;Converter&lt;/code&gt; handles
+     * @param elementConverter Converter used to convert
+     *  individual array elements.
+     * @param defaultSize Specifies the size of the default array value or if less
+     *  than zero indicates that a &lt;code&gt;null&lt;/code&gt; default value should be used.
+     */
+    public ArrayConverter(final Class&lt;?&gt; defaultType, final Converter elementConverter, final int defaultSize) {
+<span class="fc" id="L179">        this(defaultType, elementConverter);</span>
+<span class="fc" id="L180">        this.defaultSize = defaultSize;</span>
+<span class="fc" id="L181">        Object defaultValue = null;</span>
+<span class="fc bfc" id="L182" title="All 2 branches covered.">        if (defaultSize &gt;= 0) {</span>
+<span class="fc" id="L183">            defaultValue = Array.newInstance(defaultType.getComponentType(), defaultSize);</span>
+        }
+<span class="fc" id="L185">        setDefaultValue(defaultValue);</span>
+<span class="fc" id="L186">    }</span>
+
+    /**
+     * Set the delimiter to be used for parsing a delimited String.
+     *
+     * @param delimiter The delimiter [default ',']
+     */
+    public void setDelimiter(final char delimiter) {
+<span class="fc" id="L194">        this.delimiter = delimiter;</span>
+<span class="fc" id="L195">    }</span>
+
+    /**
+     * Set the allowed characters to be used for parsing a delimited String.
+     *
+     * @param allowedChars Characters which are to be considered as part of
+     * the tokens when parsing a delimited String [default is '.' and '-']
+     */
+    public void setAllowedChars(final char[] allowedChars) {
+<span class="fc" id="L204">        this.allowedChars = allowedChars;</span>
+<span class="fc" id="L205">    }</span>
+
+    /**
+     * Indicates whether converting to a String should create
+     * a delimited list or just convert the first value.
+     *
+     * @param onlyFirstToString &lt;code&gt;true&lt;/code&gt; converts only
+     * the first value in the array to a String, &lt;code&gt;false&lt;/code&gt;
+     * converts all values in the array into a delimited list (default
+     * is &lt;code&gt;true&lt;/code&gt;
+     */
+    public void setOnlyFirstToString(final boolean onlyFirstToString) {
+<span class="fc" id="L217">        this.onlyFirstToString = onlyFirstToString;</span>
+<span class="fc" id="L218">    }</span>
+
+    /**
+     * Return the default type this &lt;code&gt;Converter&lt;/code&gt; handles.
+     *
+     * @return The default type this &lt;code&gt;Converter&lt;/code&gt; handles.
+     */
+    @Override
+    protected Class&lt;?&gt; getDefaultType() {
+<span class="fc" id="L227">        return defaultType;</span>
+    }
+
+    /**
+     * Handles conversion to a String.
+     *
+     * @param value The value to be converted.
+     * @return the converted String value.
+     * @throws Throwable if an error occurs converting to a String
+     */
+    @Override
+    protected String convertToString(final Object value) throws Throwable {
+
+<span class="fc" id="L240">        int size = 0;</span>
+<span class="fc" id="L241">        Iterator&lt;?&gt; iterator = null;</span>
+<span class="fc" id="L242">        final Class&lt;?&gt; type = value.getClass();</span>
+<span class="fc bfc" id="L243" title="All 2 branches covered.">        if (type.isArray()) {</span>
+<span class="fc" id="L244">            size = Array.getLength(value);</span>
+        } else {
+<span class="fc" id="L246">            final Collection&lt;?&gt; collection = convertToCollection(type, value);</span>
+<span class="fc" id="L247">            size = collection.size();</span>
+<span class="fc" id="L248">            iterator = collection.iterator();</span>
+        }
+
+<span class="pc bpc" id="L251" title="1 of 2 branches missed.">        if (size == 0) {</span>
+<span class="nc" id="L252">            return (String)getDefault(String.class);</span>
+        }
+
+<span class="fc bfc" id="L255" title="All 2 branches covered.">        if (onlyFirstToString) {</span>
+<span class="fc" id="L256">            size = 1;</span>
+        }
+
+        // Create a StringBuffer containing a delimited list of the values
+<span class="fc" id="L260">        final StringBuilder buffer = new StringBuilder();</span>
+<span class="fc bfc" id="L261" title="All 2 branches covered.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="fc bfc" id="L262" title="All 2 branches covered.">            if (i &gt; 0) {</span>
+<span class="fc" id="L263">                buffer.append(delimiter);</span>
+            }
+<span class="fc bfc" id="L265" title="All 2 branches covered.">            Object element = iterator == null ? Array.get(value, i) : iterator.next();</span>
+<span class="fc" id="L266">            element = elementConverter.convert(String.class, element);</span>
+<span class="pc bpc" id="L267" title="1 of 2 branches missed.">            if (element != null) {</span>
+<span class="fc" id="L268">                buffer.append(element);</span>
+            }
+        }
+
+<span class="fc" id="L272">        return buffer.toString();</span>
+
+    }
+
+    /**
+     * Handles conversion to an array of the specified type.
+     *
+     * @param &lt;T&gt; Target type of the conversion.
+     * @param type The type to which this value should be converted.
+     * @param value The input value to be converted.
+     * @return The converted value.
+     * @throws Throwable if an error occurs converting to the specified type
+     */
+    @Override
+    protected &lt;T&gt; T convertToType(final Class&lt;T&gt; type, final Object value) throws Throwable {
+
+<span class="pc bpc" id="L288" title="1 of 2 branches missed.">        if (!type.isArray()) {</span>
+<span class="nc" id="L289">            throw new ConversionException(toString(getClass())</span>
+                    + &quot; cannot handle conversion to '&quot;
+<span class="nc" id="L291">                    + toString(type) + &quot;' (not an array).&quot;);</span>
+        }
+
+        // Handle the source
+<span class="fc" id="L295">        int size = 0;</span>
+<span class="fc" id="L296">        Iterator&lt;?&gt; iterator = null;</span>
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        if (value.getClass().isArray()) {</span>
+<span class="fc" id="L298">            size = Array.getLength(value);</span>
+        } else {
+<span class="fc" id="L300">            final Collection&lt;?&gt; collection = convertToCollection(type, value);</span>
+<span class="fc" id="L301">            size = collection.size();</span>
+<span class="fc" id="L302">            iterator = collection.iterator();</span>
+        }
+
+        // Allocate a new Array
+<span class="fc" id="L306">        final Class&lt;?&gt; componentType = type.getComponentType();</span>
+<span class="fc" id="L307">        final Object newArray = Array.newInstance(componentType, size);</span>
+
+        // Convert and set each element in the new Array
+<span class="fc bfc" id="L310" title="All 2 branches covered.">        for (int i = 0; i &lt; size; i++) {</span>
+<span class="fc bfc" id="L311" title="All 2 branches covered.">            Object element = iterator == null ? Array.get(value, i) : iterator.next();</span>
+            // TODO - probably should catch conversion errors and throw
+            //        new exception providing better info back to the user
+<span class="fc" id="L314">            element = elementConverter.convert(componentType, element);</span>
+<span class="fc" id="L315">            Array.set(newArray, i, element);</span>
+        }
+
+        @SuppressWarnings(&quot;unchecked&quot;)
+        final
+        // This is safe because T is an array type and newArray is an array of
+        // T's component type
+<span class="fc" id="L322">        T result = (T) newArray;</span>
+<span class="fc" id="L323">        return result;</span>
+    }
+
+    /**
+     * Returns the value unchanged.
+     *
+     * @param value The value to convert
+     * @return The value unchanged
+     */
+    @Override
+    protected Object convertArray(final Object value) {
+<span class="fc" id="L334">        return value;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Converts non-array values to a Collection prior
+     * to being converted either to an array or a String.
+     * &lt;ul&gt;
+     *   &lt;li&gt;{@link Collection} values are returned unchanged&lt;/li&gt;
+     *   &lt;li&gt;{@link Number}, {@link Boolean}  and {@link java.util.Date}
+     *       values returned as a the only element in a List.&lt;/li&gt;
+     *   &lt;li&gt;All other types are converted to a String and parsed
+     *       as a delimited list.&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * &lt;strong&gt;N.B.&lt;/strong&gt; The method is called by both the
+     * {@link ArrayConverter#convertToType(Class, Object)} and
+     * {@link ArrayConverter#convertToString(Object)} methods for
+     * &lt;i&gt;non-array&lt;/i&gt; types.
+     *
+     * @param type The type to convert the value to
+     * @param value value to be converted
+     * @return Collection elements.
+     */
+    protected Collection&lt;?&gt; convertToCollection(final Class&lt;?&gt; type, final Object value) {
+<span class="fc bfc" id="L359" title="All 2 branches covered.">        if (value instanceof Collection) {</span>
+<span class="fc" id="L360">            return (Collection&lt;?&gt;)value;</span>
+        }
+<span class="pc bpc" id="L362" title="2 of 6 branches missed.">        if (value instanceof Number ||</span>
+            value instanceof Boolean ||
+            value instanceof java.util.Date) {
+<span class="fc" id="L365">            final List&lt;Object&gt; list = new ArrayList&lt;&gt;(1);</span>
+<span class="fc" id="L366">            list.add(value);</span>
+<span class="fc" id="L367">            return list;</span>
+        }
+
+<span class="fc" id="L370">        return parseElements(type, value.toString());</span>
+    }
+
+    /**
+     * Return the default value for conversions to the specified
+     * type.
+     * @param type Data type to which this value should be converted.
+     * @return The default value for the specified type.
+     */
+    @Override
+    protected Object getDefault(final Class&lt;?&gt; type) {
+<span class="fc bfc" id="L381" title="All 2 branches covered.">        if (type.equals(String.class)) {</span>
+<span class="fc" id="L382">            return null;</span>
+        }
+
+<span class="fc" id="L385">        final Object defaultValue = super.getDefault(type);</span>
+<span class="fc bfc" id="L386" title="All 2 branches covered.">        if (defaultValue == null) {</span>
+<span class="fc" id="L387">            return null;</span>
+        }
+
+<span class="fc bfc" id="L390" title="All 2 branches covered.">        if (defaultValue.getClass().equals(type)) {</span>
+<span class="fc" id="L391">            return defaultValue;</span>
+        }
+<span class="fc" id="L393">        return Array.newInstance(type.getComponentType(), defaultSize);</span>
+
+    }
+
+    /**
+     * Provide a String representation of this array converter.
+     *
+     * @return A String representation of this array converter
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L404">        final StringBuilder buffer = new StringBuilder();</span>
+<span class="fc" id="L405">        buffer.append(toString(getClass()));</span>
+<span class="fc" id="L406">        buffer.append(&quot;[UseDefault=&quot;);</span>
+<span class="fc" id="L407">        buffer.append(isUseDefault());</span>
+<span class="fc" id="L408">        buffer.append(&quot;, &quot;);</span>
+<span class="fc" id="L409">        buffer.append(elementConverter.toString());</span>
+<span class="fc" id="L410">        buffer.append(']');</span>
+<span class="fc" id="L411">        return buffer.toString();</span>
+    }
+
+    /**
+     * &lt;p&gt;Parse an incoming String of the form similar to an array initializer
+     * in the Java language into a &lt;code&gt;List&lt;/code&gt; individual Strings
+     * for each element, according to the following rules.&lt;/p&gt;
+     * &lt;ul&gt;
+     * &lt;li&gt;The string is expected to be a comma-separated list of values.&lt;/li&gt;
+     * &lt;li&gt;The string may optionally have matching '{' and '}' delimiters
+     *   around the list.&lt;/li&gt;
+     * &lt;li&gt;Whitespace before and after each element is stripped.&lt;/li&gt;
+     * &lt;li&gt;Elements in the list may be delimited by single or double quotes.
+     *  Within a quoted elements, the normal Java escape sequences are valid.&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @param type The type to convert the value to
+     * @param value String value to be parsed
+     * @return List of parsed elements.
+     *
+     * @throws ConversionException if the syntax of &lt;code&gt;svalue&lt;/code&gt;
+     *  is not syntactically valid
+     * @throws NullPointerException if &lt;code&gt;svalue&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     */
+    private List&lt;String&gt; parseElements(final Class&lt;?&gt; type, String value) {
+
+<span class="pc bpc" id="L438" title="1 of 2 branches missed.">        if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L439">            log().debug(&quot;Parsing elements, delimiter=[&quot; + delimiter + &quot;], value=[&quot; + value + &quot;]&quot;);</span>
+        }
+
+        // Trim any matching '{' and '}' delimiters
+<span class="fc" id="L443">        value = value.trim();</span>
+<span class="pc bpc" id="L444" title="1 of 4 branches missed.">        if (value.startsWith(&quot;{&quot;) &amp;&amp; value.endsWith(&quot;}&quot;)) {</span>
+<span class="fc" id="L445">            value = value.substring(1, value.length() - 1);</span>
+        }
+
+        try {
+
+            // Set up a StreamTokenizer on the characters in this String
+<span class="fc" id="L451">            final StreamTokenizer st = new StreamTokenizer(new StringReader(value));</span>
+<span class="fc" id="L452">            st.whitespaceChars(delimiter , delimiter); // Set the delimiters</span>
+<span class="fc" id="L453">            st.ordinaryChars('0', '9');  // Needed to turn off numeric flag</span>
+<span class="fc" id="L454">            st.wordChars('0', '9');      // Needed to make part of tokens</span>
+<span class="fc bfc" id="L455" title="All 2 branches covered.">            for (final char allowedChar : allowedChars) {</span>
+<span class="fc" id="L456">                st.ordinaryChars(allowedChar, allowedChar);</span>
+<span class="fc" id="L457">                st.wordChars(allowedChar, allowedChar);</span>
+            }
+
+            // Split comma-delimited tokens into a List
+<span class="fc" id="L461">            List&lt;String&gt; list = null;</span>
+            while (true) {
+<span class="fc" id="L463">                final int ttype = st.nextToken();</span>
+<span class="fc bfc" id="L464" title="All 4 branches covered.">                if (ttype == StreamTokenizer.TT_WORD || ttype &gt; 0) {</span>
+<span class="fc bfc" id="L465" title="All 2 branches covered.">                    if (st.sval != null) {</span>
+<span class="fc bfc" id="L466" title="All 2 branches covered.">                        if (list == null) {</span>
+<span class="fc" id="L467">                            list = new ArrayList&lt;&gt;();</span>
+                        }
+<span class="fc" id="L469">                        list.add(st.sval);</span>
+                    }
+<span class="pc bpc" id="L471" title="1 of 2 branches missed.">                } else if (ttype == StreamTokenizer.TT_EOF) {</span>
+<span class="fc" id="L472">                    break;</span>
+                } else {
+<span class="nc" id="L474">                    throw new ConversionException(&quot;Encountered token of type &quot;</span>
+<span class="nc" id="L475">                        + ttype + &quot; parsing elements to '&quot; + toString(type) + &quot;.&quot;);</span>
+                }
+<span class="fc" id="L477">            }</span>
+
+<span class="fc bfc" id="L479" title="All 2 branches covered.">            if (list == null) {</span>
+<span class="fc" id="L480">                list = Collections.emptyList();</span>
+            }
+<span class="pc bpc" id="L482" title="1 of 2 branches missed.">            if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L483">                log().debug(list.size() + &quot; elements parsed&quot;);</span>
+            }
+
+            // Return the completed list
+<span class="fc" id="L487">            return list;</span>
+
+<span class="nc" id="L489">        } catch (final IOException e) {</span>
+
+<span class="nc" id="L491">            throw new ConversionException(&quot;Error converting from String to '&quot;</span>
+<span class="nc" id="L492">                    + toString(type) + &quot;': &quot; + e.getMessage(), e);</span>
+
+        }
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

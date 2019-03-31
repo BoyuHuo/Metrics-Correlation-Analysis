@@ -1,0 +1,497 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LazyDynaMap.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">LazyDynaMap.java</span></div><h1>LazyDynaMap.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2;
+
+import java.util.Map;
+
+/**
+ * &lt;p&gt;Provides a &lt;i&gt;light weight&lt;/i&gt; &lt;code&gt;DynaBean&lt;/code&gt; facade to a &lt;code&gt;Map&lt;/code&gt;
+ *  with &lt;i&gt;lazy&lt;/i&gt; map/list processing.&lt;/p&gt;
+ *
+ * &lt;p&gt;Its a &lt;i&gt;light weight&lt;/i&gt; &lt;code&gt;DynaBean&lt;/code&gt; implementation because there is no
+ *    actual &lt;code&gt;DynaClass&lt;/code&gt; associated with this &lt;code&gt;DynaBean&lt;/code&gt; - in fact
+ *    it implements the &lt;code&gt;DynaClass&lt;/code&gt; interface itself providing &lt;i&gt;pseudo&lt;/i&gt; DynaClass
+ *    behaviour from the actual values stored in the &lt;code&gt;Map&lt;/code&gt;.&lt;/p&gt;
+ *
+ * &lt;p&gt;As well providing rhe standard &lt;code&gt;DynaBean&lt;/code&gt; access to the &lt;code&gt;Map&lt;/code&gt;'s properties
+ *    this class also provides the usual &lt;i&gt;Lazy&lt;/i&gt; behaviour:&lt;/p&gt;
+ *    &lt;ul&gt;
+ *       &lt;li&gt;Properties don't need to be pre-defined in a &lt;code&gt;DynaClass&lt;/code&gt;&lt;/li&gt;
+ *       &lt;li&gt;Indexed properties (&lt;code&gt;Lists&lt;/code&gt; or &lt;code&gt;Arrays&lt;/code&gt;) are automatically instantiated
+ *           and &lt;i&gt;grown&lt;/i&gt; so that they are large enough to cater for the index being set.&lt;/li&gt;
+ *       &lt;li&gt;Mapped properties are automatically instantiated.&lt;/li&gt;
+ *    &lt;/ul&gt;
+ *
+ * &lt;p&gt;&lt;b&gt;&lt;u&gt;&lt;i&gt;Restricted&lt;/i&gt; DynaClass&lt;/u&gt;&lt;/b&gt;&lt;/p&gt;
+ *    &lt;p&gt;This class implements the &lt;code&gt;MutableDynaClass&lt;/code&gt; interface.
+ *       &lt;code&gt;MutableDynaClass&lt;/code&gt; have a facility to &lt;i&gt;restrict&lt;/i&gt; the &lt;code&gt;DynaClass&lt;/code&gt;
+ *       so that its properties cannot be modified. If the &lt;code&gt;MutableDynaClass&lt;/code&gt; is
+ *       restricted then calling any of the &lt;code&gt;set()&lt;/code&gt; methods for a property which
+ *       doesn't exist will result in a &lt;code&gt;IllegalArgumentException&lt;/code&gt; being thrown.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+public class LazyDynaMap extends LazyDynaBean implements MutableDynaClass {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * The name of this DynaClass (analogous to the
+     * &lt;code&gt;getName()&lt;/code&gt; method of &lt;code&gt;java.lang.Class&lt;/code&gt;).
+     */
+    protected String name;
+
+    /**
+     * Controls whether changes to this DynaClass's properties are allowed.
+     */
+    protected boolean restricted;
+
+    /**
+     * &lt;p&gt;Controls whether the &lt;code&gt;getDynaProperty()&lt;/code&gt; method returns
+     * null if a property doesn't exist - or creates a new one.&lt;/p&gt;
+     *
+     * &lt;p&gt;Default is &lt;code&gt;false&lt;/code&gt;.
+     */
+<span class="fc" id="L69">    protected boolean returnNull = false;</span>
+
+
+    // ------------------- Constructors ----------------------------------
+
+    /**
+     * Default Constructor.
+     */
+    public LazyDynaMap() {
+<span class="fc" id="L78">        this(null, (Map&lt;String, Object&gt;)null);</span>
+<span class="fc" id="L79">    }</span>
+
+    /**
+     * Construct a new &lt;code&gt;LazyDynaMap&lt;/code&gt; with the specified name.
+     *
+     * @param name Name of this DynaBean class
+     */
+    public LazyDynaMap(final String name) {
+<span class="fc" id="L87">        this(name, (Map&lt;String, Object&gt;)null);</span>
+<span class="fc" id="L88">    }</span>
+
+    /**
+     * Construct a new &lt;code&gt;LazyDynaMap&lt;/code&gt; with the specified &lt;code&gt;Map&lt;/code&gt;.
+     *
+     * @param values The Map backing this &lt;code&gt;LazyDynaMap&lt;/code&gt;
+     */
+    public LazyDynaMap(final Map&lt;String, Object&gt; values) {
+<span class="fc" id="L96">        this(null, values);</span>
+<span class="fc" id="L97">    }</span>
+
+    /**
+     * Construct a new &lt;code&gt;LazyDynaMap&lt;/code&gt; with the specified name and  &lt;code&gt;Map&lt;/code&gt;.
+     *
+     * @param name Name of this DynaBean class
+     * @param values The Map backing this &lt;code&gt;LazyDynaMap&lt;/code&gt;
+     */
+<span class="fc" id="L105">    public LazyDynaMap(final String name, final Map&lt;String, Object&gt; values) {</span>
+<span class="fc bfc" id="L106" title="All 2 branches covered.">        this.name      = name   == null ? &quot;LazyDynaMap&quot; : name;</span>
+<span class="fc bfc" id="L107" title="All 2 branches covered.">        this.values    = values == null ? newMap()      : values;</span>
+<span class="fc" id="L108">        this.dynaClass = this;</span>
+<span class="fc" id="L109">    }</span>
+
+    /**
+     * Construct a new &lt;code&gt;LazyDynaMap&lt;/code&gt; with the specified properties.
+     *
+     * @param properties Property descriptors for the supported properties
+     */
+    public LazyDynaMap(final DynaProperty[] properties) {
+<span class="nc" id="L117">        this(null, properties);</span>
+<span class="nc" id="L118">    }</span>
+
+    /**
+     * Construct a new &lt;code&gt;LazyDynaMap&lt;/code&gt; with the specified name and properties.
+     *
+     * @param name Name of this DynaBean class
+     * @param properties Property descriptors for the supported properties
+     */
+    public LazyDynaMap(final String name, final DynaProperty[] properties) {
+<span class="nc" id="L127">        this(name, (Map&lt;String, Object&gt;)null);</span>
+<span class="nc bnc" id="L128" title="All 2 branches missed.">        if (properties != null) {</span>
+<span class="nc bnc" id="L129" title="All 2 branches missed.">            for (final DynaProperty propertie : properties) {</span>
+<span class="nc" id="L130">                add(propertie);</span>
+            }
+        }
+<span class="nc" id="L133">    }</span>
+
+    /**
+     * Construct a new &lt;code&gt;LazyDynaMap&lt;/code&gt; based on an exisiting DynaClass
+     *
+     * @param dynaClass DynaClass to copy the name and properties from
+     */
+    public LazyDynaMap(final DynaClass dynaClass) {
+<span class="nc" id="L141">        this(dynaClass.getName(), dynaClass.getDynaProperties());</span>
+<span class="nc" id="L142">    }</span>
+
+    // ------------------- Public Methods ----------------------------------
+
+    /**
+     * Set the Map backing this &lt;code&gt;DynaBean&lt;/code&gt;
+     *
+     * @param values The new Map of values
+     */
+    public void setMap(final Map&lt;String, Object&gt; values) {
+<span class="nc" id="L152">        this.values = values;</span>
+<span class="nc" id="L153">    }</span>
+
+    /**
+     * Return the underlying Map backing this &lt;code&gt;DynaBean&lt;/code&gt;
+     * @return the underlying Map
+     * @since 1.8.0
+     */
+    @Override
+    public Map&lt;String, Object&gt; getMap() {
+<span class="fc" id="L162">        return values;</span>
+    }
+
+    // ------------------- DynaBean Methods ----------------------------------
+
+    /**
+     * Set the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param value Value to which this property is to be set
+     */
+    @Override
+    public void set(final String name, final Object value) {
+
+<span class="pc bpc" id="L176" title="1 of 4 branches missed.">        if (isRestricted() &amp;&amp; !values.containsKey(name)) {</span>
+<span class="fc" id="L177">            throw new IllegalArgumentException</span>
+                    (&quot;Invalid property name '&quot; + name + &quot;' (DynaClass is restricted)&quot;);
+        }
+
+<span class="fc" id="L181">        values.put(name, value);</span>
+
+<span class="fc" id="L183">    }</span>
+
+    // ------------------- DynaClass Methods ----------------------------------
+
+    /**
+     * Return the name of this DynaClass (analogous to the
+     * &lt;code&gt;getName()&lt;/code&gt; method of &lt;code&gt;java.lang.Class&lt;/code&gt;)
+     *
+     * @return the name of the DynaClass
+     */
+    @Override
+    public String getName() {
+<span class="fc" id="L195">        return this.name;</span>
+    }
+
+    /**
+     * &lt;p&gt;Return a property descriptor for the specified property.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the property is not found and the &lt;code&gt;returnNull&lt;/code&gt; indicator is
+     *    &lt;code&gt;true&lt;/code&gt;, this method always returns &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the property is not found and the &lt;code&gt;returnNull&lt;/code&gt; indicator is
+     *    &lt;code&gt;false&lt;/code&gt; a new property descriptor is created and returned (although
+     *    its not actually added to the DynaClass's properties). This is the default
+     *    beahviour.&lt;/p&gt;
+     *
+     * &lt;p&gt;The reason for not returning a &lt;code&gt;null&lt;/code&gt; property descriptor is that
+     *    &lt;code&gt;BeanUtils&lt;/code&gt; uses this method to check if a property exists
+     *    before trying to set it - since these &lt;i&gt;Map&lt;/i&gt; implementations automatically
+     *    add any new properties when they are set, returning &lt;code&gt;null&lt;/code&gt; from
+     *    this method would defeat their purpose.&lt;/p&gt;
+     *
+     * @param name Name of the dynamic property for which a descriptor
+     *  is requested
+     * @return The descriptor for the specified property
+     *
+     * @throws IllegalArgumentException if no property name is specified
+     */
+    @Override
+    public DynaProperty getDynaProperty(final String name) {
+
+<span class="pc bpc" id="L224" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L225">            throw new IllegalArgumentException(&quot;Property name is missing.&quot;);</span>
+        }
+
+        // If it doesn't exist and returnNull is false
+        // create a new DynaProperty
+<span class="pc bpc" id="L230" title="1 of 4 branches missed.">        if (!values.containsKey(name) &amp;&amp; isReturnNull()) {</span>
+<span class="fc" id="L231">            return null;</span>
+        }
+
+<span class="fc" id="L234">        final Object value = values.get(name);</span>
+
+<span class="pc bpc" id="L236" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L237">            return new DynaProperty(name);</span>
+        }
+<span class="fc" id="L239">        return new DynaProperty(name, value.getClass());</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Return an array of &lt;code&gt;ProperyDescriptors&lt;/code&gt; for the properties
+     * currently defined in this DynaClass.  If no properties are defined, a
+     * zero-length array will be returned.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Should we really be implementing
+     * &lt;code&gt;getBeanInfo()&lt;/code&gt; instead, which returns property descriptors
+     * and a bunch of other stuff?&lt;/p&gt;
+     * @return the set of properties for this DynaClass
+     */
+    @Override
+    public DynaProperty[] getDynaProperties() {
+
+<span class="fc" id="L256">        int i = 0;</span>
+<span class="fc" id="L257">        final DynaProperty[] properties = new DynaProperty[values.size()];</span>
+<span class="fc bfc" id="L258" title="All 2 branches covered.">        for (final Map.Entry&lt;String, Object&gt; e : values.entrySet()) {</span>
+<span class="fc" id="L259">            final String name = e.getKey();</span>
+<span class="fc" id="L260">            final Object value = values.get(name);</span>
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">            properties[i++] = new DynaProperty(name, value == null ? null</span>
+<span class="fc" id="L262">                    : value.getClass());</span>
+<span class="fc" id="L263">        }</span>
+
+<span class="fc" id="L265">        return properties;</span>
+
+    }
+
+    /**
+     * Instantiate and return a new DynaBean instance, associated
+     * with this DynaClass.
+     * @return A new &lt;code&gt;DynaBean&lt;/code&gt; instance
+     */
+    @Override
+    public DynaBean newInstance()  {
+
+        // Create a new instance of the Map
+<span class="fc" id="L278">        Map&lt;String, Object&gt; newMap = null;</span>
+        try {
+            final
+            // The new map is used as properties map
+<span class="fc" id="L282">            Map&lt;String, Object&gt; temp = getMap().getClass().newInstance();</span>
+<span class="fc" id="L283">            newMap = temp;</span>
+<span class="nc" id="L284">        } catch(final Exception ex) {</span>
+<span class="nc" id="L285">            newMap = newMap();</span>
+<span class="fc" id="L286">        }</span>
+
+        // Crate new LazyDynaMap and initialize properties
+<span class="fc" id="L289">        final LazyDynaMap lazyMap = new LazyDynaMap(newMap);</span>
+<span class="fc" id="L290">        final DynaProperty[] properties = this.getDynaProperties();</span>
+<span class="pc bpc" id="L291" title="1 of 2 branches missed.">        if (properties != null) {</span>
+<span class="fc bfc" id="L292" title="All 2 branches covered.">            for (final DynaProperty propertie : properties) {</span>
+<span class="fc" id="L293">                lazyMap.add(propertie);</span>
+            }
+        }
+<span class="fc" id="L296">        return lazyMap;</span>
+    }
+
+
+    // ------------------- MutableDynaClass Methods ----------------------------------
+
+    /**
+     * &lt;p&gt;Is this DynaClass currently restricted.&lt;/p&gt;
+     * &lt;p&gt;If restricted, no changes to the existing registration of
+     *  property names, data types, readability, or writeability are allowed.&lt;/p&gt;
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if this Mutable {@link DynaClass} is restricted,
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     */
+    @Override
+    public boolean isRestricted() {
+<span class="fc" id="L312">        return restricted;</span>
+    }
+
+    /**
+     * &lt;p&gt;Set whether this DynaClass is currently restricted.&lt;/p&gt;
+     * &lt;p&gt;If restricted, no changes to the existing registration of
+     *  property names, data types, readability, or writeability are allowed.&lt;/p&gt;
+     *
+     * @param restricted The new restricted state
+     */
+    @Override
+    public void setRestricted(final boolean restricted) {
+<span class="fc" id="L324">        this.restricted = restricted;</span>
+<span class="fc" id="L325">    }</span>
+
+    /**
+     * Add a new dynamic property with no restrictions on data type,
+     * readability, or writeability.
+     *
+     * @param name Name of the new dynamic property
+     *
+     * @throws IllegalArgumentException if name is null
+     */
+    @Override
+    public void add(final String name) {
+<span class="nc" id="L337">        add(name, null);</span>
+<span class="nc" id="L338">    }</span>
+
+    /**
+     * Add a new dynamic property with the specified data type, but with
+     * no restrictions on readability or writeability.
+     *
+     * @param name Name of the new dynamic property
+     * @param type Data type of the new dynamic property (null for no
+     *  restrictions)
+     *
+     * @throws IllegalArgumentException if name is null
+     * @throws IllegalStateException if this DynaClass is currently
+     *  restricted, so no new properties can be added
+     */
+    @Override
+    public void add(final String name, final Class&lt;?&gt; type) {
+
+<span class="pc bpc" id="L355" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L356">            throw new IllegalArgumentException(&quot;Property name is missing.&quot;);</span>
+        }
+
+<span class="pc bpc" id="L359" title="1 of 2 branches missed.">        if (isRestricted()) {</span>
+<span class="nc" id="L360">            throw new IllegalStateException(&quot;DynaClass is currently restricted. No new properties can be added.&quot;);</span>
+        }
+
+<span class="fc" id="L363">        final Object value = values.get(name);</span>
+
+        // Check if the property already exists
+<span class="pc bpc" id="L366" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">            values.put(name, type == null ? null : createProperty(name, type));</span>
+        }
+
+<span class="fc" id="L370">    }</span>
+
+    /**
+     * &lt;p&gt;Add a new dynamic property with the specified data type, readability,
+     * and writeability.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;N.B.&lt;/strong&gt;Support for readable/writeable properties has not been implemented
+     *    and this method always throws a &lt;code&gt;UnsupportedOperationException&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;I'm not sure the intention of the original authors for this method, but it seems to
+     *    me that readable/writable should be attributes of the &lt;code&gt;DynaProperty&lt;/code&gt; class
+     *    (which they are not) and is the reason this method has not been implemented.&lt;/p&gt;
+     *
+     * @param name Name of the new dynamic property
+     * @param type Data type of the new dynamic property (null for no
+     *  restrictions)
+     * @param readable Set to &lt;code&gt;true&lt;/code&gt; if this property value
+     *  should be readable
+     * @param writeable Set to &lt;code&gt;true&lt;/code&gt; if this property value
+     *  should be writeable
+     *
+     * @throws UnsupportedOperationException anytime this method is called
+     */
+    @Override
+    public void add(final String name, final Class&lt;?&gt; type, final boolean readable, final boolean writeable) {
+<span class="nc" id="L395">        throw new java.lang.UnsupportedOperationException(&quot;readable/writable properties not supported&quot;);</span>
+    }
+
+    /**
+     * Add a new dynamic property.
+     *
+     * @param property Property the new dynamic property to add.
+     *
+     * @throws IllegalArgumentException if name is null
+     */
+    protected void add(final DynaProperty property) {
+<span class="fc" id="L406">        add(property.getName(), property.getType());</span>
+<span class="fc" id="L407">    }</span>
+
+    /**
+     * Remove the specified dynamic property, and any associated data type,
+     * readability, and writeability, from this dynamic class.
+     * &lt;strong&gt;NOTE&lt;/strong&gt; - This does &lt;strong&gt;NOT&lt;/strong&gt; cause any
+     * corresponding property values to be removed from DynaBean instances
+     * associated with this DynaClass.
+     *
+     * @param name Name of the dynamic property to remove
+     *
+     * @throws IllegalArgumentException if name is null
+     * @throws IllegalStateException if this DynaClass is currently
+     *  restricted, so no properties can be removed
+     */
+    @Override
+    public void remove(final String name) {
+
+<span class="nc bnc" id="L425" title="All 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L426">            throw new IllegalArgumentException(&quot;Property name is missing.&quot;);</span>
+        }
+
+<span class="nc bnc" id="L429" title="All 2 branches missed.">        if (isRestricted()) {</span>
+<span class="nc" id="L430">            throw new IllegalStateException(&quot;DynaClass is currently restricted. No properties can be removed.&quot;);</span>
+        }
+
+        // Remove, if property doesn't exist
+<span class="nc bnc" id="L434" title="All 2 branches missed.">        if (values.containsKey(name)) {</span>
+<span class="nc" id="L435">            values.remove(name);</span>
+        }
+
+<span class="nc" id="L438">    }</span>
+
+
+    // ------------------- Additional Public Methods ----------------------------------
+
+    /**
+     * Should this DynaClass return a &lt;code&gt;null&lt;/code&gt; from
+     * the &lt;code&gt;getDynaProperty(name)&lt;/code&gt; method if the property
+     * doesn't exist.
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if a &lt;code&gt;null&lt;/code&gt; {@link DynaProperty}
+     * should be returned if the property doesn't exist, otherwise
+     * &lt;code&gt;false&lt;/code&gt; if a new {@link DynaProperty} should be created.
+     */
+    public boolean isReturnNull() {
+<span class="fc" id="L453">        return returnNull;</span>
+    }
+
+    /**
+     * Set whether this DynaClass should return a &lt;code&gt;null&lt;/code&gt; from
+     * the &lt;code&gt;getDynaProperty(name)&lt;/code&gt; method if the property
+     * doesn't exist.
+     *
+     * @param returnNull &lt;code&gt;true&lt;/code&gt; if a &lt;code&gt;null&lt;/code&gt; {@link DynaProperty}
+     * should be returned if the property doesn't exist, otherwise
+     * &lt;code&gt;false&lt;/code&gt; if a new {@link DynaProperty} should be created.
+     */
+    public void setReturnNull(final boolean returnNull) {
+<span class="fc" id="L466">        this.returnNull = returnNull;</span>
+<span class="fc" id="L467">    }</span>
+
+
+    // ------------------- Protected Methods ----------------------------------
+
+   /**
+     * &lt;p&gt;Indicate whether a property actually exists.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;N.B.&lt;/strong&gt; Using &lt;code&gt;getDynaProperty(name) == null&lt;/code&gt;
+     * doesn't work in this implementation because that method might
+     * return a DynaProperty if it doesn't exist (depending on the
+     * &lt;code&gt;returnNull&lt;/code&gt; indicator).&lt;/p&gt;
+     *
+     * @param name Name of the dynamic property
+     * @return &lt;code&gt;true&lt;/code&gt; if the property exists,
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     * @throws IllegalArgumentException if no property name is specified
+     */
+    @Override
+    protected boolean isDynaProperty(final String name) {
+
+<span class="pc bpc" id="L488" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L489">            throw new IllegalArgumentException(&quot;Property name is missing.&quot;);</span>
+        }
+
+<span class="fc" id="L492">        return values.containsKey(name);</span>
+
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

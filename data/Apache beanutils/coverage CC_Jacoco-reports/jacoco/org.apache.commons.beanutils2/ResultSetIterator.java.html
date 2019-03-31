@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResultSetIterator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">ResultSetIterator.java</span></div><h1>ResultSetIterator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+package org.apache.commons.beanutils2;
+
+
+import java.sql.SQLException;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+
+
+/**
+ * &lt;p&gt;Implementation of &lt;code&gt;java.util.Iterator&lt;/code&gt; returned by the
+ * &lt;code&gt;iterator()&lt;/code&gt; method of {@link ResultSetDynaClass}.  Each
+ * object returned by this iterator will be a {@link DynaBean} that
+ * represents a single row from the result set being wrapped.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+
+public class ResultSetIterator implements DynaBean, Iterator&lt;DynaBean&gt; {
+
+
+    // ------------------------------------------------------------ Constructor
+
+
+    /**
+     * &lt;p&gt;Construct an &lt;code&gt;Iterator&lt;/code&gt; for the result set being wrapped
+     * by the specified {@link ResultSetDynaClass}.&lt;/p&gt;
+     *
+     * @param dynaClass The {@link ResultSetDynaClass} wrapping the
+     *  result set we will iterate over
+     */
+<span class="fc" id="L49">    ResultSetIterator(final ResultSetDynaClass dynaClass) {</span>
+
+<span class="fc" id="L51">        this.dynaClass = dynaClass;</span>
+
+<span class="fc" id="L53">    }</span>
+
+
+    // ----------------------------------------------------- Instance Variables
+
+
+
+    /**
+     * &lt;p&gt;Flag indicating whether the result set is currently positioned at a
+     * row for which we have not yet returned an element in the iteration.&lt;/p&gt;
+     */
+<span class="fc" id="L64">    protected boolean current = false;</span>
+
+
+    /**
+     * &lt;p&gt;The {@link ResultSetDynaClass} we are associated with.&lt;/p&gt;
+     */
+<span class="fc" id="L70">    protected ResultSetDynaClass dynaClass = null;</span>
+
+
+    /**
+     * &lt;p&gt;Flag indicating whether the result set has indicated that there are
+     * no further rows.&lt;/p&gt;
+     */
+<span class="fc" id="L77">    protected boolean eof = false;</span>
+
+
+    // ------------------------------------------------------- DynaBean Methods
+
+
+    /**
+     * Does the specified mapped property contain a value for the specified
+     * key value?
+     *
+     * @param name Name of the property to check
+     * @param key Name of the key to check
+     * @return &lt;code&gt;true&lt;/code&gt; if the mapped property contains a value for
+     * the specified key, otherwise &lt;code&gt;false&lt;/code&gt;
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public boolean contains(final String name, final String key) {
+
+<span class="nc" id="L98">        throw new UnsupportedOperationException</span>
+            (&quot;FIXME - mapped properties not currently supported&quot;);
+
+    }
+
+
+    /**
+     * Return the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @return The property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public Object get(final String name) {
+
+<span class="fc bfc" id="L116" title="All 2 branches covered.">        if (dynaClass.getDynaProperty(name) == null) {</span>
+<span class="fc" id="L117">            throw new IllegalArgumentException(name);</span>
+        }
+        try {
+<span class="fc" id="L120">            return dynaClass.getObjectFromResultSet(name);</span>
+<span class="nc" id="L121">        } catch (final SQLException e) {</span>
+<span class="nc" id="L122">            throw new RuntimeException</span>
+                (&quot;get(&quot; + name + &quot;): SQLException: &quot; + e);
+        }
+
+    }
+
+
+    /**
+     * Return the value of an indexed property with the specified name.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @param index Index of the value to be retrieved
+     * @return The indexed property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not indexed
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the range of the underlying property
+     * @throws NullPointerException if no array or List has been
+     *  initialized for this property
+     */
+    @Override
+    public Object get(final String name, final int index) {
+
+<span class="nc" id="L148">        throw new UnsupportedOperationException</span>
+            (&quot;FIXME - indexed properties not currently supported&quot;);
+
+    }
+
+
+    /**
+     * Return the value of a mapped property with the specified name,
+     * or &lt;code&gt;null&lt;/code&gt; if there is no value for the specified key.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @param key Key of the value to be retrieved
+     * @return The mapped property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not mapped
+     */
+    @Override
+    public Object get(final String name, final String key) {
+
+<span class="nc" id="L170">        throw new UnsupportedOperationException</span>
+            (&quot;FIXME - mapped properties not currently supported&quot;);
+
+    }
+
+
+    /**
+     * Return the &lt;code&gt;DynaClass&lt;/code&gt; instance that describes the set of
+     * properties available for this DynaBean.
+     *
+     * @return The associated DynaClass
+     */
+    @Override
+    public DynaClass getDynaClass() {
+
+<span class="nc" id="L185">        return this.dynaClass;</span>
+
+    }
+
+
+    /**
+     * Remove any existing value for the specified key on the
+     * specified mapped property.
+     *
+     * @param name Name of the property for which a value is to
+     *  be removed
+     * @param key Key of the value to be removed
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public void remove(final String name, final String key) {
+
+<span class="nc" id="L204">        throw new UnsupportedOperationException</span>
+            (&quot;FIXME - mapped operations not currently supported&quot;);
+
+    }
+
+
+    /**
+     * Set the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws NullPointerException if an attempt is made to set a
+     *  primitive property to null
+     */
+    @Override
+    public void set(final String name, final Object value) {
+
+<span class="nc bnc" id="L226" title="All 2 branches missed.">        if (dynaClass.getDynaProperty(name) == null) {</span>
+<span class="nc" id="L227">            throw new IllegalArgumentException(name);</span>
+        }
+        try {
+<span class="nc" id="L230">            dynaClass.getResultSet().updateObject(name, value);</span>
+<span class="nc" id="L231">        } catch (final SQLException e) {</span>
+<span class="nc" id="L232">            throw new RuntimeException</span>
+                (&quot;set(&quot; + name + &quot;): SQLException: &quot; + e);
+<span class="nc" id="L234">        }</span>
+
+<span class="nc" id="L236">    }</span>
+
+
+    /**
+     * Set the value of an indexed property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param index Index of the property to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not indexed
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the range of the underlying property
+     */
+    @Override
+    public void set(final String name, final int index, final Object value) {
+
+<span class="nc" id="L258">        throw new UnsupportedOperationException</span>
+            (&quot;FIXME - indexed properties not currently supported&quot;);
+
+    }
+
+
+    /**
+     * Set the value of a mapped property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param key Key of the property to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not mapped
+     */
+    @Override
+    public void set(final String name, final String key, final Object value) {
+
+<span class="nc" id="L281">        throw new UnsupportedOperationException</span>
+            (&quot;FIXME - mapped properties not currently supported&quot;);
+
+    }
+
+
+    // ------------------------------------------------------- Iterator Methods
+
+
+    /**
+     * &lt;p&gt;Return &lt;code&gt;true&lt;/code&gt; if the iteration has more elements.&lt;/p&gt;
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the result set has another
+     * row, otherwise &lt;code&gt;false&lt;/code&gt;
+     */
+    @Override
+    public boolean hasNext() {
+
+        try {
+<span class="fc" id="L300">            advance();</span>
+<span class="fc bfc" id="L301" title="All 2 branches covered.">            return !eof;</span>
+<span class="nc" id="L302">        } catch (final SQLException e) {</span>
+<span class="nc" id="L303">            throw new RuntimeException(&quot;hasNext():  SQLException:  &quot; + e);</span>
+        }
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return the next element in the iteration.&lt;/p&gt;
+     *
+     * @return advance to the new row and return this
+     */
+    @Override
+    public DynaBean next() {
+
+        try {
+<span class="fc" id="L318">            advance();</span>
+<span class="pc bpc" id="L319" title="1 of 2 branches missed.">            if (eof) {</span>
+<span class="nc" id="L320">                throw new NoSuchElementException();</span>
+            }
+<span class="fc" id="L322">            current = false;</span>
+<span class="fc" id="L323">            return this;</span>
+<span class="nc" id="L324">        } catch (final SQLException e) {</span>
+<span class="nc" id="L325">            throw new RuntimeException(&quot;next():  SQLException:  &quot; + e);</span>
+        }
+
+    }
+
+
+    /**
+     * &lt;p&gt;Remove the current element from the iteration.  This method is
+     * not supported.&lt;/p&gt;
+     */
+    @Override
+    public void remove() {
+
+<span class="nc" id="L338">        throw new UnsupportedOperationException(&quot;remove()&quot;);</span>
+
+    }
+
+
+    // ------------------------------------------------------ Protected Methods
+
+
+    /**
+     * &lt;p&gt;Advance the result set to the next row, if there is not a current
+     * row (and if we are not already at eof).&lt;/p&gt;
+     *
+     * @throws SQLException if the result set throws an exception
+     */
+    protected void advance() throws SQLException {
+
+<span class="pc bpc" id="L354" title="1 of 4 branches missed.">        if (!current &amp;&amp; !eof) {</span>
+<span class="fc bfc" id="L355" title="All 2 branches covered.">            if (dynaClass.getResultSet().next()) {</span>
+<span class="fc" id="L356">                current = true;</span>
+<span class="fc" id="L357">                eof = false;</span>
+            } else {
+<span class="fc" id="L359">                current = false;</span>
+<span class="fc" id="L360">                eof = true;</span>
+            }
+        }
+
+<span class="fc" id="L364">    }</span>
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

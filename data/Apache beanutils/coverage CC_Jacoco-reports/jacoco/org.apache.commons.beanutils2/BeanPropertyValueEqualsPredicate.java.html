@@ -1,0 +1,292 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BeanPropertyValueEqualsPredicate.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">BeanPropertyValueEqualsPredicate.java</span></div><h1>BeanPropertyValueEqualsPredicate.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2;
+
+import java.lang.reflect.InvocationTargetException;
+
+import org.apache.commons.collections4.Predicate;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+
+/**
+ * &lt;p&gt;&lt;code&gt;Predicate&lt;/code&gt; that evaluates a property value against a specified value.&lt;/p&gt;
+ * &lt;p&gt;
+ * An implementation of &lt;code&gt;org.apache.commons.collections4.Predicate&lt;/code&gt; that evaluates a
+ * property value on the object provided against a specified value and returns &lt;code&gt;true&lt;/code&gt;
+ * if equal; &lt;code&gt;false&lt;/code&gt; otherwise.
+ * The &lt;code&gt;BeanPropertyValueEqualsPredicate&lt;/code&gt; constructor takes two parameters which
+ * determine what property will be evaluated on the target object and what its expected value should
+ * be.
+ * &lt;/p&gt;
+ * &lt;dl&gt;
+ *    &lt;dt&gt;
+ *       &lt;strong&gt;
+ *           &lt;code&gt;public BeanPropertyValueEqualsPredicate( String propertyName, Object propertyValue )&lt;/code&gt;
+ *       &lt;/strong&gt;
+ *    &lt;/dt&gt;
+ *    &lt;dd&gt;
+ *       Will create a &lt;code&gt;Predicate&lt;/code&gt; that will evaluate the target object and return
+ *       &lt;code&gt;true&lt;/code&gt; if the property specified by &lt;code&gt;propertyName&lt;/code&gt; has a value which
+ *       is equal to the the value specified by &lt;code&gt;propertyValue&lt;/code&gt;. Or return
+ *       &lt;code&gt;false&lt;/code&gt; otherwise.
+ *    &lt;/dd&gt;
+ * &lt;/dl&gt;
+ * &lt;p&gt;
+ * &lt;strong&gt;Note:&lt;/strong&gt; Property names can be a simple, nested, indexed, or mapped property as defined by
+ * &lt;code&gt;org.apache.commons.beanutils2.PropertyUtils&lt;/code&gt;.  If any object in the property path
+ * specified by &lt;code&gt;propertyName&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt; then the outcome is based on the
+ * value of the &lt;code&gt;ignoreNull&lt;/code&gt; attribute.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * A typical usage might look like:
+ * &lt;/p&gt;
+ * &lt;pre&gt;&lt;code&gt;
+ * // create the closure
+ * BeanPropertyValueEqualsPredicate predicate =
+ *    new BeanPropertyValueEqualsPredicate( &quot;activeEmployee&quot;, Boolean.FALSE );
+ *
+ * // filter the Collection
+ * CollectionUtils.filter( peopleCollection, predicate );
+ * &lt;/code&gt;&lt;/pre&gt;
+ * &lt;p&gt;
+ * This would take a &lt;code&gt;Collection&lt;/code&gt; of person objects and filter out any people whose
+ * &lt;code&gt;activeEmployee&lt;/code&gt; property is &lt;code&gt;false&lt;/code&gt;. Assuming...
+ * &lt;/p&gt;
+ * &lt;ul&gt;
+ *    &lt;li&gt;
+ *       The top level object in the &lt;code&gt;peeopleCollection&lt;/code&gt; is an object which represents a
+ *       person.
+ *    &lt;/li&gt;
+ *    &lt;li&gt;
+ *       The person object has a &lt;code&gt;getActiveEmployee()&lt;/code&gt; method which returns
+ *       the boolean value for the object's &lt;code&gt;activeEmployee&lt;/code&gt; property.
+ *    &lt;/li&gt;
+ * &lt;/ul&gt;
+ * &lt;p&gt;
+ * Another typical usage might look like:
+ * &lt;/p&gt;
+ * &lt;pre&gt;&lt;code&gt;
+ * // create the closure
+ * BeanPropertyValueEqualsPredicate predicate =
+ *    new BeanPropertyValueEqualsPredicate( &quot;personId&quot;, &quot;456-12-1234&quot; );
+ *
+ * // search the Collection
+ * CollectionUtils.find( peopleCollection, predicate );
+ * &lt;/code&gt;&lt;/pre&gt;
+ * &lt;p&gt;
+ * This would search a &lt;code&gt;Collection&lt;/code&gt; of person objects and return the first object whose
+ * &lt;code&gt;personId&lt;/code&gt; property value equals &lt;code&gt;456-12-1234&lt;/code&gt;. Assuming...
+ * &lt;/p&gt;
+ * &lt;ul&gt;
+ *    &lt;li&gt;
+ *       The top level object in the &lt;code&gt;peeopleCollection&lt;/code&gt; is an object which represents a
+ *       person.
+ *    &lt;/li&gt;
+ *    &lt;li&gt;
+ *       The person object has a &lt;code&gt;getPersonId()&lt;/code&gt; method which returns
+ *       the value for the object's &lt;code&gt;personId&lt;/code&gt; property.
+ *    &lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @version $Id$
+ * @see org.apache.commons.beanutils2.PropertyUtils
+ * @see org.apache.commons.collections4.Predicate
+ */
+public class BeanPropertyValueEqualsPredicate implements Predicate {
+
+    /** For logging. */
+<span class="fc" id="L114">    private final Log log = LogFactory.getLog(this.getClass());</span>
+
+    /**
+     * The name of the property which will be evaluated when this &lt;code&gt;Predicate&lt;/code&gt; is executed.
+     */
+    private String propertyName;
+
+    /**
+     * The value that the property specified by &lt;code&gt;propertyName&lt;/code&gt;
+     * will be compared to when this &lt;code&gt;Predicate&lt;/code&gt; executes.
+     */
+    private Object propertyValue;
+
+    /**
+     * &lt;p&gt;Should &lt;code&gt;null&lt;/code&gt; objects in the property path be ignored?&lt;/p&gt;
+     * &lt;p&gt;
+     * Determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will genenerate an
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not. If set to &lt;code&gt;true&lt;/code&gt; then if any objects
+     * in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged but
+     * not rethrown and &lt;code&gt;false&lt;/code&gt; will be returned.  If set to &lt;code&gt;false&lt;/code&gt; then if
+     * any objects in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged and
+     * rethrown.
+     * &lt;/p&gt;
+     */
+    private boolean ignoreNull;
+
+    /**
+     * Constructor which takes the name of the property, its expected value to be used in evaluation,
+     * and assumes &lt;code&gt;ignoreNull&lt;/code&gt; to be &lt;code&gt;false&lt;/code&gt;.
+     *
+     * @param propertyName The name of the property that will be evaluated against the expected value.
+     * @param propertyValue The value to use in object evaluation.
+     * @throws IllegalArgumentException If the property name provided is null or empty.
+     */
+    public BeanPropertyValueEqualsPredicate(final String propertyName, final Object propertyValue) {
+<span class="fc" id="L151">        this(propertyName, propertyValue, false);</span>
+<span class="fc" id="L152">    }</span>
+
+    /**
+     * Constructor which takes the name of the property, its expected value
+     * to be used in evaluation, and a boolean which determines whether &lt;code&gt;null&lt;/code&gt; objects in
+     * the property path will genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not.
+     *
+     * @param propertyName The name of the property that will be evaluated against the expected value.
+     * @param propertyValue The value to use in object evaluation.
+     * @param ignoreNull Determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not.
+     * @throws IllegalArgumentException If the property name provided is null or empty.
+     */
+    public BeanPropertyValueEqualsPredicate(final String propertyName, final Object propertyValue, final boolean ignoreNull) {
+<span class="fc" id="L166">        super();</span>
+
+<span class="pc bpc" id="L168" title="2 of 4 branches missed.">        if (propertyName != null &amp;&amp; propertyName.length() &gt; 0) {</span>
+<span class="fc" id="L169">            this.propertyName = propertyName;</span>
+<span class="fc" id="L170">            this.propertyValue = propertyValue;</span>
+<span class="fc" id="L171">            this.ignoreNull = ignoreNull;</span>
+        } else {
+<span class="nc" id="L173">            throw new IllegalArgumentException(&quot;propertyName cannot be null or empty&quot;);</span>
+        }
+<span class="fc" id="L175">    }</span>
+
+    /**
+     * Evaulates the object provided against the criteria specified when this
+     * &lt;code&gt;BeanPropertyValueEqualsPredicate&lt;/code&gt; was constructed.  Equality is based on
+     * either reference or logical equality as defined by the property object's equals method. If
+     * any object in the property path leading up to the target property is &lt;code&gt;null&lt;/code&gt; then
+     * the outcome will be based on the value of the &lt;code&gt;ignoreNull&lt;/code&gt; attribute. By default,
+     * &lt;code&gt;ignoreNull&lt;/code&gt; is &lt;code&gt;false&lt;/code&gt; and would result in an
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; if an object in the property path leading up to the
+     * target property is &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param object The object to be evaluated.
+     * @return True if the object provided meets all the criteria for this &lt;code&gt;Predicate&lt;/code&gt;;
+     * false otherwise.
+     * @throws IllegalArgumentException If an IllegalAccessException, InvocationTargetException, or
+     * NoSuchMethodException is thrown when trying to access the property specified on the object
+     * provided. Or if an object in the property path provided is &lt;code&gt;null&lt;/code&gt; and
+     * &lt;code&gt;ignoreNull&lt;/code&gt; is set to &lt;code&gt;false&lt;/code&gt;.
+     */
+    @Override
+    public boolean evaluate(final Object object) {
+
+<span class="fc" id="L198">        boolean evaluation = false;</span>
+
+        try {
+<span class="fc" id="L201">            evaluation = evaluateValue(propertyValue,</span>
+<span class="fc" id="L202">                    PropertyUtils.getProperty(object, propertyName));</span>
+<span class="fc" id="L203">        } catch (final IllegalArgumentException e) {</span>
+<span class="fc" id="L204">            final String errorMsg = &quot;Problem during evaluation. Null value encountered in property path...&quot;;</span>
+
+<span class="fc bfc" id="L206" title="All 2 branches covered.">            if (ignoreNull) {</span>
+<span class="fc" id="L207">                log.warn(&quot;WARNING: &quot; + errorMsg + e);</span>
+            } else {
+<span class="fc" id="L209">                final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="pc bpc" id="L210" title="1 of 2 branches missed.">                if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L211">                    log.error(errorMsg, e);</span>
+                }
+<span class="fc" id="L213">                throw iae;</span>
+            }
+<span class="nc" id="L215">        } catch (final IllegalAccessException e) {</span>
+<span class="nc" id="L216">            final String errorMsg = &quot;Unable to access the property provided.&quot;;</span>
+<span class="nc" id="L217">            final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="nc bnc" id="L218" title="All 2 branches missed.">            if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L219">                log.error(errorMsg, e);</span>
+            }
+<span class="nc" id="L221">            throw iae;</span>
+<span class="nc" id="L222">        } catch (final InvocationTargetException e) {</span>
+<span class="nc" id="L223">            final String errorMsg = &quot;Exception occurred in property's getter&quot;;</span>
+<span class="nc" id="L224">            final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">            if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L226">                log.error(errorMsg, e);</span>
+            }
+<span class="nc" id="L228">            throw iae;</span>
+<span class="fc" id="L229">        } catch (final NoSuchMethodException e) {</span>
+<span class="fc" id="L230">            final String errorMsg = &quot;Property not found.&quot;;</span>
+<span class="fc" id="L231">            final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="pc bpc" id="L232" title="1 of 2 branches missed.">            if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L233">                log.error(errorMsg, e);</span>
+            }
+<span class="fc" id="L235">            throw iae;</span>
+<span class="fc" id="L236">        }</span>
+
+<span class="fc" id="L238">        return evaluation;</span>
+    }
+
+    /**
+     * Utility method which evaluates whether the actual property value equals the expected property
+     * value.
+     *
+     * @param expected The expected value.
+     * @param actual The actual value.
+     * @return True if they are equal; false otherwise.
+     */
+    protected boolean evaluateValue(final Object expected, final Object actual) {
+<span class="fc bfc" id="L250" title="All 6 branches covered.">        return expected == actual || expected != null &amp;&amp; expected.equals(actual);</span>
+    }
+
+    /**
+     * Returns the name of the property which will be evaluated when this &lt;code&gt;Predicate&lt;/code&gt; is
+     * executed.
+     *
+     * @return The name of the property which will be evaluated when this &lt;code&gt;Predicate&lt;/code&gt; is
+     * executed.
+     */
+    public String getPropertyName() {
+<span class="nc" id="L261">        return propertyName;</span>
+    }
+
+    /**
+     * Returns the value that the property specified by &lt;code&gt;propertyName&lt;/code&gt; will be compared to
+     * when this &lt;code&gt;Predicate&lt;/code&gt; executes.
+     *
+     * @return The value that the property specified by &lt;code&gt;propertyName&lt;/code&gt; will be compared to
+     * when this &lt;code&gt;Predicate&lt;/code&gt; executes.
+     */
+    public Object getPropertyValue() {
+<span class="nc" id="L272">        return propertyValue;</span>
+    }
+
+    /**
+     * Returns the flag which determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not. If set to &lt;code&gt;true&lt;/code&gt; then
+     * if any objects in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged but
+     * not rethrown and &lt;code&gt;false&lt;/code&gt; will be returned.  If set to &lt;code&gt;false&lt;/code&gt; then if
+     * any objects in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged and
+     * rethrown.
+     *
+     * @return The flag which determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not.
+     */
+    public boolean isIgnoreNull() {
+<span class="nc" id="L289">        return ignoreNull;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

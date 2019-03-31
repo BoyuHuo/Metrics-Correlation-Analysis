@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DecimalLocaleConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2.locale.converters</a> &gt; <span class="el_source">DecimalLocaleConverter.java</span></div><h1>DecimalLocaleConverter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2.locale.converters;
+
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.text.ParseException;
+import java.util.Locale;
+
+import org.apache.commons.beanutils2.locale.BaseLocaleConverter;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+
+/**
+ * &lt;p&gt;Standard {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+ * implementation that converts an incoming
+ * locale-sensitive String into a &lt;code&gt;java.lang.Number&lt;/code&gt; object,
+ * optionally using a default value or throwing a
+ * {@link org.apache.commons.beanutils2.ConversionException}
+ * if a conversion error occurs.&lt;/p&gt;
+ *
+ * @since 1.7
+ * @version $Id$
+ */
+
+public class DecimalLocaleConverter extends BaseLocaleConverter {
+
+
+    // ----------------------------------------------------- Instance Variables
+
+    /** All logging goes through this logger */
+<span class="fc" id="L48">    private final Log log = LogFactory.getLog(DecimalLocaleConverter.class);</span>
+
+    // ----------------------------------------------------------- Constructors
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine and an unlocalized pattern is used
+     * for the convertion.
+     *
+     */
+    public DecimalLocaleConverter() {
+
+<span class="nc" id="L62">        this(false);</span>
+<span class="nc" id="L63">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine.
+     *
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DecimalLocaleConverter(final boolean locPattern) {
+
+<span class="nc" id="L75">        this(Locale.getDefault(), locPattern);</span>
+<span class="nc" id="L76">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param locale        The locale
+     */
+    public DecimalLocaleConverter(final Locale locale) {
+
+<span class="nc" id="L87">        this(locale, false);</span>
+<span class="nc" id="L88">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs.
+     *
+     * @param locale        The locale
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DecimalLocaleConverter(final Locale locale, final boolean locPattern) {
+
+<span class="nc" id="L100">        this(locale, (String) null, locPattern);</span>
+<span class="nc" id="L101">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     */
+    public DecimalLocaleConverter(final Locale locale, final String pattern) {
+
+<span class="nc" id="L113">        this(locale, pattern, false);</span>
+<span class="nc" id="L114">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs.
+     *
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DecimalLocaleConverter(final Locale locale, final String pattern, final boolean locPattern) {
+
+<span class="fc" id="L127">        super(locale, pattern, locPattern);</span>
+<span class="fc" id="L128">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine and an unlocalized pattern is used
+     * for the convertion.
+     *
+     * @param defaultValue  The default value to be returned
+     */
+    public DecimalLocaleConverter(final Object defaultValue) {
+
+<span class="nc" id="L141">        this(defaultValue, false);</span>
+<span class="nc" id="L142">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DecimalLocaleConverter(final Object defaultValue, final boolean locPattern) {
+
+<span class="nc" id="L155">        this(defaultValue, Locale.getDefault(), locPattern);</span>
+<span class="nc" id="L156">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     */
+    public DecimalLocaleConverter(final Object defaultValue, final Locale locale) {
+
+<span class="nc" id="L168">        this(defaultValue, locale, false);</span>
+<span class="nc" id="L169">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DecimalLocaleConverter(final Object defaultValue, final Locale locale, final boolean locPattern) {
+
+<span class="nc" id="L182">        this(defaultValue, locale, null, locPattern);</span>
+<span class="nc" id="L183">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     */
+    public DecimalLocaleConverter(final Object defaultValue, final Locale locale, final String pattern) {
+
+<span class="nc" id="L196">        this(defaultValue, locale, pattern, false);</span>
+<span class="nc" id="L197">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DecimalLocaleConverter(final Object defaultValue, final Locale locale, final String pattern, final boolean locPattern) {
+
+<span class="fc" id="L211">        super(defaultValue, locale, pattern, locPattern);</span>
+
+<span class="fc" id="L213">    }</span>
+
+    // --------------------------------------------------------- Methods
+
+    /**
+     * Convert the specified locale-sensitive input object into an output
+     * object of the specified type.
+     *
+     * @param value The input object to be converted
+     * @param pattern The pattern is used for the convertion
+     * @return The converted value
+     *
+     * @throws org.apache.commons.beanutils2.ConversionException if conversion
+     * cannot be performed successfully
+     * @throws ParseException if an error occurs parsing a String to a Number
+     */
+    @Override
+    protected Object parse(final Object value, final String pattern) throws ParseException {
+
+<span class="fc bfc" id="L232" title="All 2 branches covered.">        if (value instanceof Number) {</span>
+<span class="fc" id="L233">            return value;</span>
+        }
+
+        // Note that despite the ambiguous &quot;getInstance&quot; name, and despite the
+        // fact that objects returned from this method have the same toString
+        // representation, each call to getInstance actually returns a new
+        // object.
+<span class="fc" id="L240">        final DecimalFormat formatter = (DecimalFormat) NumberFormat.getInstance(locale);</span>
+
+        // if some constructors default pattern to null, it makes only sense
+        // to handle null pattern gracefully
+<span class="fc bfc" id="L244" title="All 2 branches covered.">        if (pattern != null) {</span>
+<span class="fc bfc" id="L245" title="All 2 branches covered.">            if (locPattern) {</span>
+<span class="fc" id="L246">                formatter.applyLocalizedPattern(pattern);</span>
+            } else {
+<span class="fc" id="L248">                formatter.applyPattern(pattern);</span>
+            }
+        } else {
+<span class="fc" id="L251">            log.debug(&quot;No pattern provided, using default.&quot;);</span>
+        }
+
+<span class="fc" id="L254">        return formatter.parse((String) value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

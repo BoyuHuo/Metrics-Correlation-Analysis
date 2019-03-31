@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DefaultBeanIntrospector.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">DefaultBeanIntrospector.java</span></div><h1>DefaultBeanIntrospector.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2;
+
+import java.beans.BeanInfo;
+import java.beans.IndexedPropertyDescriptor;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.Method;
+import java.util.List;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+/**
+ * &lt;p&gt;
+ * The default {@link BeanIntrospector} implementation.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This class implements a default bean introspection algorithm based on the JDK
+ * classes in the &lt;code&gt;java.beans&lt;/code&gt; package. It discovers properties
+ * conforming to the Java Beans specification.
+ * &lt;/p&gt;
+ * &lt;p&gt;
+ * This class is a singleton. The single instance can be obtained using the
+ * {@code INSTANCE} field. It does not define any state and thus can be
+ * shared by arbitrary clients. {@link PropertyUtils} per default uses this
+ * instance as its only {@code BeanIntrospector} object.
+ * &lt;/p&gt;
+ *
+ * @version $Id$
+ * @since 1.9
+ */
+public class DefaultBeanIntrospector implements BeanIntrospector {
+    /** The singleton instance of this class. */
+<span class="fc" id="L51">    public static final BeanIntrospector INSTANCE = new DefaultBeanIntrospector();</span>
+
+    /** Constant for argument types of a method that expects no arguments. */
+<span class="fc" id="L54">    private static final Class&lt;?&gt;[] EMPTY_CLASS_PARAMETERS = new Class[0];</span>
+
+    /** Constant for arguments types of a method that expects a list argument. */
+<span class="fc" id="L57">    private static final Class&lt;?&gt;[] LIST_CLASS_PARAMETER = new Class[] { java.util.List.class };</span>
+
+    /** Log instance */
+<span class="fc" id="L60">    private final Log log = LogFactory.getLog(getClass());</span>
+
+    /**
+     * Private constructor so that no instances can be created.
+     */
+<span class="fc" id="L65">    private DefaultBeanIntrospector() {</span>
+<span class="fc" id="L66">    }</span>
+
+    /**
+     * Performs introspection of a specific Java class. This implementation uses
+     * the {@code java.beans.Introspector.getBeanInfo()} method to obtain
+     * all property descriptors for the current class and adds them to the
+     * passed in introspection context.
+     *
+     * @param icontext the introspection context
+     */
+    @Override
+    public void introspect(final IntrospectionContext icontext) {
+<span class="fc" id="L78">        BeanInfo beanInfo = null;</span>
+        try {
+<span class="fc" id="L80">            beanInfo = Introspector.getBeanInfo(icontext.getTargetClass());</span>
+<span class="nc" id="L81">        } catch (final IntrospectionException e) {</span>
+            // no descriptors are added to the context
+<span class="nc" id="L83">            log.error(</span>
+<span class="nc" id="L84">                    &quot;Error when inspecting class &quot; + icontext.getTargetClass(),</span>
+                    e);
+<span class="nc" id="L86">            return;</span>
+<span class="fc" id="L87">        }</span>
+
+<span class="fc" id="L89">        PropertyDescriptor[] descriptors = beanInfo.getPropertyDescriptors();</span>
+<span class="pc bpc" id="L90" title="1 of 2 branches missed.">        if (descriptors == null) {</span>
+<span class="nc" id="L91">            descriptors = new PropertyDescriptor[0];</span>
+        }
+
+<span class="fc" id="L94">        handleIndexedPropertyDescriptors(icontext.getTargetClass(),</span>
+                descriptors);
+<span class="fc" id="L96">        icontext.addPropertyDescriptors(descriptors);</span>
+<span class="fc" id="L97">    }</span>
+
+    /**
+     * This method fixes an issue where IndexedPropertyDescriptor behaves
+     * differently in different versions of the JDK for 'indexed' properties
+     * which use java.util.List (rather than an array). It implements a
+     * workaround for Bug 28358. If you have a Bean with the following
+     * getters/setters for an indexed property:
+     *
+     * &lt;pre&gt;
+     * public List getFoo()
+     * public Object getFoo(int index)
+     * public void setFoo(List foo)
+     * public void setFoo(int index, Object foo)
+     * &lt;/pre&gt;
+     *
+     * then the IndexedPropertyDescriptor's getReadMethod() and getWriteMethod()
+     * behave as follows:
+     * &lt;ul&gt;
+     * &lt;li&gt;JDK 1.3.1_04: returns valid Method objects from these methods.&lt;/li&gt;
+     * &lt;li&gt;JDK 1.4.2_05: returns null from these methods.&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @param beanClass the current class to be inspected
+     * @param descriptors the array with property descriptors
+     */
+    private void handleIndexedPropertyDescriptors(final Class&lt;?&gt; beanClass,
+            final PropertyDescriptor[] descriptors) {
+<span class="fc bfc" id="L125" title="All 2 branches covered.">        for (final PropertyDescriptor pd : descriptors) {</span>
+<span class="fc bfc" id="L126" title="All 2 branches covered.">            if (pd instanceof IndexedPropertyDescriptor) {</span>
+<span class="fc" id="L127">                final IndexedPropertyDescriptor descriptor = (IndexedPropertyDescriptor) pd;</span>
+<span class="fc" id="L128">                final String propName = descriptor.getName().substring(0, 1)</span>
+<span class="fc" id="L129">                        .toUpperCase()</span>
+<span class="fc" id="L130">                        + descriptor.getName().substring(1);</span>
+
+<span class="fc bfc" id="L132" title="All 2 branches covered.">                if (descriptor.getReadMethod() == null) {</span>
+<span class="fc bfc" id="L133" title="All 2 branches covered.">                    final String methodName = descriptor.getIndexedReadMethod() != null ? descriptor</span>
+<span class="fc" id="L134">                            .getIndexedReadMethod().getName() : &quot;get&quot;</span>
+                            + propName;
+<span class="fc" id="L136">                    final Method readMethod = MethodUtils</span>
+<span class="fc" id="L137">                            .getMatchingAccessibleMethod(beanClass, methodName,</span>
+                                    EMPTY_CLASS_PARAMETERS);
+<span class="pc bpc" id="L139" title="1 of 2 branches missed.">                    if (readMethod != null) {</span>
+                        try {
+<span class="nc" id="L141">                            descriptor.setReadMethod(readMethod);</span>
+<span class="nc" id="L142">                        } catch (final Exception e) {</span>
+<span class="nc" id="L143">                            log.error(</span>
+                                    &quot;Error setting indexed property read method&quot;,
+                                    e);
+<span class="nc" id="L146">                        }</span>
+                    }
+                }
+<span class="fc bfc" id="L149" title="All 2 branches covered.">                if (descriptor.getWriteMethod() == null) {</span>
+<span class="fc bfc" id="L150" title="All 2 branches covered.">                    final String methodName = descriptor.getIndexedWriteMethod() != null ? descriptor</span>
+<span class="fc" id="L151">                            .getIndexedWriteMethod().getName() : &quot;set&quot;</span>
+                            + propName;
+<span class="fc" id="L153">                    Method writeMethod = MethodUtils</span>
+<span class="fc" id="L154">                            .getMatchingAccessibleMethod(beanClass, methodName,</span>
+                                    LIST_CLASS_PARAMETER);
+<span class="pc bpc" id="L156" title="1 of 2 branches missed.">                    if (writeMethod == null) {</span>
+<span class="fc bfc" id="L157" title="All 2 branches covered.">                        for (final Method m : beanClass.getMethods()) {</span>
+<span class="fc bfc" id="L158" title="All 2 branches covered.">                            if (m.getName().equals(methodName)) {</span>
+<span class="fc" id="L159">                                final Class&lt;?&gt;[] parameterTypes = m.getParameterTypes();</span>
+<span class="pc bpc" id="L160" title="1 of 2 branches missed.">                                if (parameterTypes.length == 1</span>
+                                        &amp;&amp; List.class
+<span class="nc bnc" id="L162" title="All 2 branches missed.">                                                .isAssignableFrom(parameterTypes[0])) {</span>
+<span class="nc" id="L163">                                    writeMethod = m;</span>
+<span class="nc" id="L164">                                    break;</span>
+                                }
+                            }
+                        }
+                    }
+<span class="pc bpc" id="L169" title="1 of 2 branches missed.">                    if (writeMethod != null) {</span>
+                        try {
+<span class="nc" id="L171">                            descriptor.setWriteMethod(writeMethod);</span>
+<span class="nc" id="L172">                        } catch (final Exception e) {</span>
+<span class="nc" id="L173">                            log.error(</span>
+                                    &quot;Error setting indexed property write method&quot;,
+                                    e);
+<span class="nc" id="L176">                        }</span>
+                    }
+                }
+            }
+        }
+<span class="fc" id="L181">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>FileConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2.converters</a> &gt; <span class="el_source">FileConverter.java</span></div><h1>FileConverter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2.converters;
+
+import java.io.File;
+
+/**
+ * {@link org.apache.commons.beanutils2.Converter} implementaion that handles conversion
+ * to and from &lt;b&gt;java.io.File&lt;/b&gt; objects.
+ * &lt;p&gt;
+ * Can be configured to either return a &lt;i&gt;default value&lt;/i&gt; or throw a
+ * &lt;code&gt;ConversionException&lt;/code&gt; if a conversion error occurs.
+ *
+ * @version $Id$
+ * @since 1.6
+ */
+public final class FileConverter extends AbstractConverter {
+
+    /**
+     * Construct a &lt;b&gt;java.io.File&lt;/b&gt; &lt;i&gt;Converter&lt;/i&gt; that throws
+     * a &lt;code&gt;ConversionException&lt;/code&gt; if an error occurs.
+     */
+    public FileConverter() {
+<span class="fc" id="L38">        super();</span>
+<span class="fc" id="L39">    }</span>
+
+    /**
+     * Construct a &lt;b&gt;java.io.File&lt;/b&gt; &lt;i&gt;Converter&lt;/i&gt; that returns
+     * a default value if an error occurs.
+     *
+     * @param defaultValue The default value to be returned
+     * if the value to be converted is missing or an error
+     * occurs converting the value.
+     */
+    public FileConverter(final Object defaultValue) {
+<span class="nc" id="L50">        super(defaultValue);</span>
+<span class="nc" id="L51">    }</span>
+
+    /**
+     * Return the default type this &lt;code&gt;Converter&lt;/code&gt; handles.
+     *
+     * @return The default type this &lt;code&gt;Converter&lt;/code&gt; handles.
+     * @since 1.8.0
+     */
+    @Override
+    protected Class&lt;?&gt; getDefaultType() {
+<span class="fc" id="L61">        return File.class;</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert the input object into a java.io.File.&lt;/p&gt;
+     *
+     * @param &lt;T&gt; The target type of the conversion.
+     * @param type Data type to which this value should be converted.
+     * @param value The input value to be converted.
+     * @return The converted value.
+     * @throws Throwable if an error occurs converting to the specified type
+     * @since 1.8.0
+     */
+    @Override
+    protected &lt;T&gt; T convertToType(final Class&lt;T&gt; type, final Object value) throws Throwable {
+<span class="fc bfc" id="L76" title="All 2 branches covered.">        if (File.class.equals(type)) {</span>
+<span class="fc" id="L77">            return type.cast(new File(value.toString()));</span>
+        }
+
+<span class="fc" id="L80">        throw conversionException(type, value);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

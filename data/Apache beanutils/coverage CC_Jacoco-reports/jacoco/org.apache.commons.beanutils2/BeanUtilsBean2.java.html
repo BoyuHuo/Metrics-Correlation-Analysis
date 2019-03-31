@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BeanUtilsBean2.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">BeanUtilsBean2.java</span></div><h1>BeanUtilsBean2.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2;
+
+/**
+ * &lt;p&gt;{@link BeanUtilsBean} implementation that creates a
+ * {@link ConvertUtilsBean2} and delegates conversion to
+ * {@link ConvertUtilsBean#convert(Object, Class)}.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * To configure this implementation for the current context ClassLoader invoke
+ * &lt;code&gt;BeanUtilsBean.setInstance(new BeanUtilsBean2());&lt;/code&gt;
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * BeanUtils 1.7.0 delegated all conversion to String to the converter
+ * registered for the &lt;code&gt;String.class&lt;/code&gt;. One of the improvements in
+ * BeanUtils 1.8.0 was to upgrade the {@link Converter} implementations so
+ * that they could handle conversion to String for their type (e.g.
+ * IntegerConverter now handles conversion from an Integer to a String as
+ * well as String to Integer).
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * In order to take advantage of these improvements BeanUtils needs to change
+ * how it gets the appropriate {@link Converter}. This functionality has been
+ * implemented in the new {@link ConvertUtilsBean#lookup(Class, Class)} and
+ * {@link ConvertUtilsBean#convert(Object, Class)} methods. However changing
+ * {@link BeanUtilsBean} to use these methods could create compatibility
+ * issues for existing users. In order to avoid that, this new
+ * {@link BeanUtilsBean} implementation has been created (and the associated
+ * {@link ConvertUtilsBean2}).
+ * &lt;/p&gt;
+ *
+ * @see ConvertUtilsBean2
+ * @version $Id$
+ * @since 1.8.0
+ */
+public class BeanUtilsBean2 extends BeanUtilsBean {
+
+    /**
+     * &lt;p&gt;Constructs an instance using new property
+     * and conversion instances.&lt;/p&gt;
+     */
+    public BeanUtilsBean2() {
+<span class="fc" id="L61">        super(new ConvertUtilsBean2());</span>
+<span class="fc" id="L62">    }</span>
+
+    /**
+     * &lt;p&gt;Convert the value to an object of the specified class (if
+     * possible).&lt;/p&gt;
+     *
+     * @param value Value to be converted (may be null)
+     * @param type Class of the value to be converted to
+     * @return The converted value
+     */
+    @Override
+    protected Object convert(final Object value, final Class&lt;?&gt; type) {
+<span class="fc" id="L74">        return getConvertUtils().convert(value, type);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

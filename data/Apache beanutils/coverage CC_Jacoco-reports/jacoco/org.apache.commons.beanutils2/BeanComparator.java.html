@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BeanComparator.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">BeanComparator.java</span></div><h1>BeanComparator.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2;
+
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+import java.util.Comparator;
+
+import org.apache.commons.collections4.comparators.ComparableComparator;
+
+/**
+ * &lt;p&gt;
+ * This comparator compares two beans by the specified bean property.
+ * It is also possible to compare beans based on nested, indexed,
+ * combined, mapped bean properties. Please see the {@link PropertyUtilsBean}
+ * documentation for all property name possibilities.
+ *
+ * &lt;/p&gt;&lt;p&gt;
+ * &lt;strong&gt;Note:&lt;/strong&gt; The BeanComparator passes the values of the specified
+ * bean property to a ComparableComparator, if no comparator is
+ * specified in the constructor. If you are comparing two beans based
+ * on a property that could contain &quot;null&quot; values, a suitable &lt;code&gt;Comparator&lt;/code&gt;
+ * or &lt;code&gt;ComparatorChain&lt;/code&gt; should be supplied in the constructor.
+ * Note that the passed in {@code Comparator} must be able to handle the
+ * passed in objects. Because the type of the property to be compared is not
+ * known at compile time no type checks can be performed by the compiler.
+ * Thus {@code ClassCastException} exceptions can be thrown if unexpected
+ * property values occur.
+ * &lt;/p&gt;
+ *
+ * @param &lt;T&gt; the type of beans to be compared by this {@code Comparator}
+ * @version $Id$
+ */
+public class BeanComparator&lt;T&gt; implements Comparator&lt;T&gt;, Serializable {
+
+    private static final long serialVersionUID = 1L;
+    private String property;
+    private final Comparator&lt;?&gt; comparator;
+
+    /**
+     * &lt;p&gt;Constructs a Bean Comparator without a property set.
+     * &lt;/p&gt;&lt;p&gt;
+     * &lt;strong&gt;Note&lt;/strong&gt; that this is intended to be used
+     * only in bean-centric environments.
+     * &lt;/p&gt;&lt;p&gt;
+     * Until {@link #setProperty} is called with a non-null value.
+     * this comparator will compare the Objects only.
+     * &lt;/p&gt;
+     */
+    public BeanComparator() {
+<span class="nc" id="L66">        this( null );</span>
+<span class="nc" id="L67">    }</span>
+
+    /**
+     * &lt;p&gt;Constructs a property-based comparator for beans.
+     * This compares two beans by the property
+     * specified in the property parameter. This constructor creates
+     * a &lt;code&gt;BeanComparator&lt;/code&gt; that uses a &lt;code&gt;ComparableComparator&lt;/code&gt;
+     * to compare the property values.
+     * &lt;/p&gt;
+     *
+     * &lt;p&gt;Passing &quot;null&quot; to this constructor will cause the BeanComparator
+     * to compare objects based on natural order, that is
+     * &lt;code&gt;java.lang.Comparable&lt;/code&gt;.
+     * &lt;/p&gt;
+     *
+     * @param property String Name of a bean property, which may contain the
+     * name of a simple, nested, indexed, mapped, or combined
+     * property. See {@link PropertyUtilsBean} for property query language syntax.
+     * If the property passed in is null then the actual objects will be compared
+     */
+    public BeanComparator( final String property ) {
+<span class="fc" id="L88">        this( property, ComparableComparator.INSTANCE );</span>
+<span class="fc" id="L89">    }</span>
+
+    /**
+     * Constructs a property-based comparator for beans.
+     * This constructor creates
+     * a BeanComparator that uses the supplied Comparator to compare
+     * the property values.
+     *
+     * @param property Name of a bean property, can contain the name
+     * of a simple, nested, indexed, mapped, or combined
+     * property. See {@link PropertyUtilsBean} for property query language
+     * syntax.
+     * @param comparator BeanComparator will pass the values of the
+     * specified bean property to this Comparator.
+     * If your bean property is not a comparable or
+     * contains null values, a suitable comparator
+     * may be supplied in this constructor.
+     */
+<span class="fc" id="L107">    public BeanComparator( final String property, final Comparator&lt;?&gt; comparator ) {</span>
+<span class="fc" id="L108">        setProperty( property );</span>
+<span class="pc bpc" id="L109" title="1 of 2 branches missed.">        if (comparator != null) {</span>
+<span class="fc" id="L110">            this.comparator = comparator;</span>
+        } else {
+<span class="nc" id="L112">            this.comparator = ComparableComparator.INSTANCE;</span>
+        }
+<span class="fc" id="L114">    }</span>
+
+    /**
+     * Sets the method to be called to compare two JavaBeans
+     *
+     * @param property String method name to call to compare
+     * If the property passed in is null then the actual objects will be compared
+     */
+    public void setProperty( final String property ) {
+<span class="fc" id="L123">        this.property = property;</span>
+<span class="fc" id="L124">    }</span>
+
+
+    /**
+     * Gets the property attribute of the BeanComparator
+     *
+     * @return String method name to call to compare.
+     * A null value indicates that the actual objects will be compared
+     */
+    public String getProperty() {
+<span class="nc" id="L134">        return property;</span>
+    }
+
+
+    /**
+     * Gets the Comparator being used to compare beans.
+     *
+     * @return the Comparator being used to compare beans
+     */
+    public Comparator&lt;?&gt; getComparator() {
+<span class="nc" id="L144">        return comparator;</span>
+    }
+
+
+    /**
+     * Compare two JavaBeans by their shared property.
+     * If {@link #getProperty} is null then the actual objects will be compared.
+     *
+     * @param  o1 Object The first bean to get data from to compare against
+     * @param  o2 Object The second bean to get data from to compare
+     * @return int negative or positive based on order
+     */
+    @Override
+    public int compare( final T o1, final T o2 ) {
+
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if ( property == null ) {</span>
+            // compare the actual objects
+<span class="nc" id="L161">            return internalCompare( o1, o2 );</span>
+        }
+
+        try {
+<span class="fc" id="L165">            final Object value1 = PropertyUtils.getProperty( o1, property );</span>
+<span class="fc" id="L166">            final Object value2 = PropertyUtils.getProperty( o2, property );</span>
+<span class="fc" id="L167">            return internalCompare( value1, value2 );</span>
+        }
+<span class="nc" id="L169">        catch ( final IllegalAccessException iae ) {</span>
+<span class="nc" id="L170">            throw new RuntimeException( &quot;IllegalAccessException: &quot; + iae.toString() );</span>
+        }
+<span class="nc" id="L172">        catch ( final InvocationTargetException ite ) {</span>
+<span class="nc" id="L173">            throw new RuntimeException( &quot;InvocationTargetException: &quot; + ite.toString() );</span>
+        }
+<span class="fc" id="L175">        catch ( final NoSuchMethodException nsme ) {</span>
+<span class="fc" id="L176">            throw new RuntimeException( &quot;NoSuchMethodException: &quot; + nsme.toString() );</span>
+        }
+    }
+
+    /**
+     * Two &lt;code&gt;BeanComparator&lt;/code&gt;'s are equals if and only if
+     * the wrapped comparators and the property names to be compared
+     * are equal.
+     * @param  o Comparator to compare to
+     * @return whether the the comparators are equal or not
+     */
+    @Override
+    public boolean equals(final Object o) {
+<span class="nc bnc" id="L189" title="All 2 branches missed.">        if (this == o) {</span>
+<span class="nc" id="L190">            return true;</span>
+        }
+<span class="nc bnc" id="L192" title="All 2 branches missed.">        if (!(o instanceof BeanComparator)) {</span>
+<span class="nc" id="L193">            return false;</span>
+        }
+
+<span class="nc" id="L196">        final BeanComparator&lt;?&gt; beanComparator = (BeanComparator&lt;?&gt;) o;</span>
+
+<span class="nc bnc" id="L198" title="All 2 branches missed.">        if (!comparator.equals(beanComparator.comparator)) {</span>
+<span class="nc" id="L199">            return false;</span>
+        }
+<span class="nc bnc" id="L201" title="All 2 branches missed.">        if (property != null)</span>
+        {
+<span class="nc bnc" id="L203" title="All 2 branches missed.">            if (!property.equals(beanComparator.property)) {</span>
+<span class="nc" id="L204">                return false;</span>
+            }
+        }
+        else
+        {
+<span class="nc bnc" id="L209" title="All 2 branches missed.">            return beanComparator.property == null;</span>
+        }
+
+<span class="nc" id="L212">        return true;</span>
+    }
+
+    /**
+     * Hashcode compatible with equals.
+     * @return the hash code for this comparator
+     */
+    @Override
+    public int hashCode() {
+        int result;
+<span class="nc" id="L222">        result = comparator.hashCode();</span>
+<span class="nc" id="L223">        return result;</span>
+    }
+
+    /**
+     * Compares the given values using the internal {@code Comparator}.
+     * &lt;em&gt;Note&lt;/em&gt;: This comparison cannot be performed in a type-safe way; so
+     * {@code ClassCastException} exceptions may be thrown.
+     *
+     * @param val1 the first value to be compared
+     * @param val2 the second value to be compared
+     * @return the result of the comparison
+     */
+    private int internalCompare(final Object val1, final Object val2) {
+        @SuppressWarnings(&quot;rawtypes&quot;)
+        final
+        // to make the compiler happy
+<span class="fc" id="L239">        Comparator c = comparator;</span>
+<span class="fc" id="L240">        return c.compare(val1, val2);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

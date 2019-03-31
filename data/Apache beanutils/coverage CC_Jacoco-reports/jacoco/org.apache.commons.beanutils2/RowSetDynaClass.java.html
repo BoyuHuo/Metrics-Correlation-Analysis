@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>RowSetDynaClass.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">RowSetDynaClass.java</span></div><h1>RowSetDynaClass.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+package org.apache.commons.beanutils2;
+
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+
+/**
+ * &lt;p&gt;Implementation of {@link DynaClass} that creates an in-memory collection
+ * of {@link DynaBean}s representing the results of an SQL query.  Once the
+ * {@link DynaClass} instance has been created, the JDBC &lt;code&gt;ResultSet&lt;/code&gt;
+ * and &lt;code&gt;Statement&lt;/code&gt; on which it is based can be closed, and the
+ * underlying &lt;code&gt;Connection&lt;/code&gt; can be returned to its connection pool
+ * (if you are using one).&lt;/p&gt;
+ *
+ * &lt;p&gt;The normal usage pattern is something like:&lt;/p&gt;
+ * &lt;pre&gt;
+ *   Connection conn = ...;  // Acquire connection from pool
+ *   Statement stmt = conn.createStatement();
+ *   ResultSet rs = stmt.executeQuery(&quot;SELECT ...&quot;);
+ *   RowSetDynaClass rsdc = new RowSetDynaClass(rs);
+ *   rs.close();
+ *   stmt.close();
+ *   ...;                    // Return connection to pool
+ *   List rows = rsdc.getRows();
+ *   ...;                   // Process the rows as desired
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;Each column in the result set will be represented as a {@link DynaBean}
+ * property of the corresponding name (optionally forced to lower case
+ * for portability).  There will be one {@link DynaBean} in the
+ * &lt;code&gt;List&lt;/code&gt; returned by &lt;code&gt;getRows()&lt;/code&gt; for each
+ * row in the original &lt;code&gt;ResultSet&lt;/code&gt;.&lt;/p&gt;
+ *
+ * &lt;p&gt;In general, instances of {@link RowSetDynaClass} can be serialized
+ * and deserialized, which will automatically include the list of
+ * {@link DynaBean}s representing the data content.  The only exception
+ * to this rule would be when the underlying property values that were
+ * copied from the &lt;code&gt;ResultSet&lt;/code&gt; originally cannot themselves
+ * be serialized.  Therefore, a {@link RowSetDynaClass} makes a very
+ * convenient mechanism for transporting data sets to remote Java-based
+ * application components.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+
+public class RowSetDynaClass extends JDBCDynaClass {
+
+    private static final long serialVersionUID = 1L;
+
+    // ----------------------------------------------------- Instance variables
+
+    /**
+     * &lt;p&gt;Limits the size of the returned list.  The call to
+     * &lt;code&gt;getRows()&lt;/code&gt; will return at most limit number of rows.
+     * If less than or equal to 0, does not limit the size of the result.
+     */
+<span class="fc" id="L78">    protected int limit = -1;</span>
+
+    /**
+     * &lt;p&gt;The list of {@link DynaBean}s representing the contents of
+     * the original &lt;code&gt;ResultSet&lt;/code&gt; on which this
+     * {@link RowSetDynaClass} was based.&lt;/p&gt;
+     */
+<span class="fc" id="L85">    protected List&lt;DynaBean&gt; rows = new ArrayList&lt;&gt;();</span>
+
+    // ----------------------------------------------------------- Constructors
+
+
+    /**
+     * &lt;p&gt;Construct a new {@link RowSetDynaClass} for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to column names in the result set will be lower cased.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     */
+    public RowSetDynaClass(final ResultSet resultSet) throws SQLException {
+
+<span class="fc" id="L104">        this(resultSet, true, -1);</span>
+
+<span class="fc" id="L106">    }</span>
+
+    /**
+     * &lt;p&gt;Construct a new {@link RowSetDynaClass} for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to column names in the result set will be lower cased.&lt;/p&gt;
+     *
+     * If &lt;code&gt;limit&lt;/code&gt; is not less than 0, max &lt;code&gt;limit&lt;/code&gt;
+     * number of rows will be copied into the list.
+     *
+     * @param resultSet The result set to be wrapped
+     * @param limit The maximum for the size of the result.
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     */
+    public RowSetDynaClass(final ResultSet resultSet, final int limit) throws SQLException {
+
+<span class="fc" id="L126">        this(resultSet, true, limit);</span>
+
+<span class="fc" id="L128">    }</span>
+
+
+    /**
+     * &lt;p&gt;Construct a new {@link RowSetDynaClass} for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to the column names in the result set will be lower cased or not,
+     * depending on the specified &lt;code&gt;lowerCase&lt;/code&gt; value.&lt;/p&gt;
+     *
+     * If &lt;code&gt;limit&lt;/code&gt; is not less than 0, max &lt;code&gt;limit&lt;/code&gt;
+     * number of rows will be copied into the resultset.
+     *
+     *
+     * @param resultSet The result set to be wrapped
+     * @param lowerCase Should property names be lower cased?
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     */
+    public RowSetDynaClass(final ResultSet resultSet, final boolean lowerCase)
+                                                    throws SQLException {
+<span class="fc" id="L151">        this(resultSet, lowerCase, -1);</span>
+
+<span class="fc" id="L153">    }</span>
+
+    /**
+     * &lt;p&gt;Construct a new {@link RowSetDynaClass} for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to the column names in the result set will be lower cased or not,
+     * depending on the specified &lt;code&gt;lowerCase&lt;/code&gt; value.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt; - If you specify &lt;code&gt;false&lt;/code&gt;
+     * for &lt;code&gt;lowerCase&lt;/code&gt;, the returned property names will
+     * exactly match the column names returned by your JDBC driver.
+     * Because different drivers might return column names in different
+     * cases, the property names seen by your application will vary
+     * depending on which JDBC driver you are using.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     * @param lowerCase Should property names be lower cased?
+     * @param limit Maximum limit for the &lt;code&gt;List&lt;/code&gt; of {@link DynaBean}
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     */
+    public RowSetDynaClass(final ResultSet resultSet, final boolean lowerCase, final int limit)
+                                                            throws SQLException {
+
+<span class="fc" id="L180">        this(resultSet, lowerCase, limit, false);</span>
+
+<span class="fc" id="L182">    }</span>
+
+    /**
+     * &lt;p&gt;Construct a new {@link RowSetDynaClass} for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to the column names in the result set will be lower cased or not,
+     * depending on the specified &lt;code&gt;lowerCase&lt;/code&gt; value.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt; - If you specify &lt;code&gt;false&lt;/code&gt;
+     * for &lt;code&gt;lowerCase&lt;/code&gt;, the returned property names will
+     * exactly match the column names returned by your JDBC driver.
+     * Because different drivers might return column names in different
+     * cases, the property names seen by your application will vary
+     * depending on which JDBC driver you are using.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     * @param lowerCase Should property names be lower cased?
+     * @param useColumnLabel true if the column label should be used, otherwise false
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     * @since 1.8.3
+     */
+    public RowSetDynaClass(final ResultSet resultSet, final boolean lowerCase, final boolean useColumnLabel)
+        throws SQLException {
+<span class="nc" id="L209">        this(resultSet, lowerCase, -1, useColumnLabel);</span>
+
+<span class="nc" id="L211">    }</span>
+
+    /**
+     * &lt;p&gt;Construct a new {@link RowSetDynaClass} for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to the column names in the result set will be lower cased or not,
+     * depending on the specified &lt;code&gt;lowerCase&lt;/code&gt; value.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt; - If you specify &lt;code&gt;false&lt;/code&gt;
+     * for &lt;code&gt;lowerCase&lt;/code&gt;, the returned property names will
+     * exactly match the column names returned by your JDBC driver.
+     * Because different drivers might return column names in different
+     * cases, the property names seen by your application will vary
+     * depending on which JDBC driver you are using.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     * @param lowerCase Should property names be lower cased?
+     * @param limit Maximum limit for the &lt;code&gt;List&lt;/code&gt; of {@link DynaBean}
+     * @param useColumnLabel true if the column label should be used, otherwise false
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     * @since 1.8.3
+     */
+    public RowSetDynaClass(final ResultSet resultSet, final boolean lowerCase, final int limit, final boolean useColumnLabel)
+<span class="fc" id="L238">                                                            throws SQLException {</span>
+
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">        if (resultSet == null) {</span>
+<span class="nc" id="L241">            throw new NullPointerException();</span>
+        }
+<span class="fc" id="L243">        this.lowerCase = lowerCase;</span>
+<span class="fc" id="L244">        this.limit = limit;</span>
+<span class="fc" id="L245">        setUseColumnLabel(useColumnLabel);</span>
+<span class="fc" id="L246">        introspect(resultSet);</span>
+<span class="fc" id="L247">        copy(resultSet);</span>
+
+<span class="fc" id="L249">    }</span>
+
+    /**
+     * &lt;p&gt;Return a &lt;code&gt;List&lt;/code&gt; containing the {@link DynaBean}s that
+     * represent the contents of each &lt;code&gt;Row&lt;/code&gt; from the
+     * &lt;code&gt;ResultSet&lt;/code&gt; that was the basis of this
+     * {@link RowSetDynaClass} instance.  These {@link DynaBean}s are
+     * disconnected from the database itself, so there is no problem with
+     * modifying the contents of the list, or the values of the properties
+     * of these {@link DynaBean}s.  However, it is the application's
+     * responsibility to persist any such changes back to the database,
+     * if it so desires.&lt;/p&gt;
+     *
+     * @return A &lt;code&gt;List&lt;/code&gt; of {@link DynaBean} instances
+     */
+    public List&lt;DynaBean&gt; getRows() {
+
+<span class="fc" id="L266">        return this.rows;</span>
+
+    }
+
+
+    // ------------------------------------------------------ Protected Methods
+
+
+    /**
+     * &lt;p&gt;Copy the column values for each row in the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt; into a newly created {@link DynaBean}, and add
+     * this bean to the list of {@link DynaBean}s that will later by
+     * returned by a call to &lt;code&gt;getRows()&lt;/code&gt;.&lt;/p&gt;
+     *
+     * @param resultSet The &lt;code&gt;ResultSet&lt;/code&gt; whose data is to be
+     *  copied
+     *
+     * @throws SQLException if an error is encountered copying the data
+     */
+    protected void copy(final ResultSet resultSet) throws SQLException {
+
+<span class="fc" id="L287">        int cnt = 0;</span>
+<span class="fc bfc" id="L288" title="All 6 branches covered.">        while (resultSet.next() &amp;&amp; (limit &lt; 0  || cnt++ &lt; limit) ) {</span>
+<span class="fc" id="L289">            final DynaBean bean = createDynaBean();</span>
+<span class="fc bfc" id="L290" title="All 2 branches covered.">            for (final DynaProperty propertie : properties) {</span>
+<span class="fc" id="L291">                final String name = propertie.getName();</span>
+<span class="fc" id="L292">                final Object value = getObject(resultSet, name);</span>
+<span class="fc" id="L293">                bean.set(name, value);</span>
+            }
+<span class="fc" id="L295">            rows.add(bean);</span>
+<span class="fc" id="L296">        }</span>
+
+<span class="fc" id="L298">    }</span>
+
+
+    /**
+     * &lt;p&gt;Create and return a new {@link DynaBean} instance to be used for
+     * representing a row in the underlying result set.&lt;/p&gt;
+     *
+     * @return A new &lt;code&gt;DynaBean&lt;/code&gt; instance
+     */
+    protected DynaBean createDynaBean() {
+
+<span class="fc" id="L309">        return new BasicDynaBean(this);</span>
+
+    }
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

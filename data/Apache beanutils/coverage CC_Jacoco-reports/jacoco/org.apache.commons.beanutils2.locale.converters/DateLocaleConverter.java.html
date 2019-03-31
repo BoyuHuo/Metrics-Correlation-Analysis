@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DateLocaleConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2.locale.converters</a> &gt; <span class="el_source">DateLocaleConverter.java</span></div><h1>DateLocaleConverter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2.locale.converters;
+
+import java.text.DateFormat;
+import java.text.DateFormatSymbols;
+import java.text.ParseException;
+import java.text.ParsePosition;
+import java.text.SimpleDateFormat;
+import java.util.Locale;
+
+import org.apache.commons.beanutils2.ConversionException;
+import org.apache.commons.beanutils2.locale.BaseLocaleConverter;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+
+/**
+ * &lt;p&gt;Standard {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+ * implementation that converts an incoming
+ * locale-sensitive String into a &lt;code&gt;java.util.Date&lt;/code&gt; object,
+ * optionally using a default value or throwing a
+ * {@link org.apache.commons.beanutils2.ConversionException}
+ * if a conversion error occurs.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+
+public class DateLocaleConverter extends BaseLocaleConverter {
+
+    // ----------------------------------------------------- Instance Variables
+
+    /** All logging goes through this logger */
+<span class="fc" id="L49">    private final Log log = LogFactory.getLog(DateLocaleConverter.class);</span>
+
+    /** Should the date conversion be lenient? */
+<span class="fc" id="L52">    boolean isLenient = false;</span>
+
+    /**
+     * Default Pattern Characters
+     *
+     */
+<span class="fc" id="L58">    private static final String DEFAULT_PATTERN_CHARS = DateLocaleConverter.initDefaultChars();</span>
+
+    // ----------------------------------------------------------- Constructors
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine and an unlocalized pattern is used
+     * for the convertion.
+     *
+     */
+    public DateLocaleConverter() {
+
+<span class="fc" id="L72">        this(false);</span>
+<span class="fc" id="L73">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine.
+     *
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DateLocaleConverter(final boolean locPattern) {
+
+<span class="fc" id="L85">        this(Locale.getDefault(), locPattern);</span>
+<span class="fc" id="L86">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param locale        The locale
+     */
+    public DateLocaleConverter(final Locale locale) {
+
+<span class="fc" id="L97">        this(locale, false);</span>
+<span class="fc" id="L98">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs.
+     *
+     * @param locale        The locale
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DateLocaleConverter(final Locale locale, final boolean locPattern) {
+
+<span class="fc" id="L110">        this(locale, (String) null, locPattern);</span>
+<span class="fc" id="L111">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     */
+    public DateLocaleConverter(final Locale locale, final String pattern) {
+
+<span class="fc" id="L123">        this(locale, pattern, false);</span>
+<span class="fc" id="L124">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will throw a {@link org.apache.commons.beanutils2.ConversionException}
+     * if a conversion error occurs.
+     *
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DateLocaleConverter(final Locale locale, final String pattern, final boolean locPattern) {
+
+<span class="fc" id="L137">        super(locale, pattern, locPattern);</span>
+<span class="fc" id="L138">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine and an unlocalized pattern is used
+     * for the convertion.
+     *
+     * @param defaultValue  The default value to be returned
+     */
+    public DateLocaleConverter(final Object defaultValue) {
+
+<span class="fc" id="L151">        this(defaultValue, false);</span>
+<span class="fc" id="L152">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. The locale is the default locale for
+     * this instance of the Java Virtual Machine.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DateLocaleConverter(final Object defaultValue, final boolean locPattern) {
+
+<span class="fc" id="L165">        this(defaultValue, Locale.getDefault(), locPattern);</span>
+<span class="fc" id="L166">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     */
+    public DateLocaleConverter(final Object defaultValue, final Locale locale) {
+
+<span class="nc" id="L178">        this(defaultValue, locale, false);</span>
+<span class="nc" id="L179">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DateLocaleConverter(final Object defaultValue, final Locale locale, final boolean locPattern) {
+
+<span class="fc" id="L192">        this(defaultValue, locale, null, locPattern);</span>
+<span class="fc" id="L193">    }</span>
+
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs. An unlocalized pattern is used for the convertion.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     */
+    public DateLocaleConverter(final Object defaultValue, final Locale locale, final String pattern) {
+
+<span class="nc" id="L207">        this(defaultValue, locale, pattern, false);</span>
+<span class="nc" id="L208">    }</span>
+
+    /**
+     * Create a {@link org.apache.commons.beanutils2.locale.LocaleConverter}
+     * that will return the specified default value
+     * if a conversion error occurs.
+     *
+     * @param defaultValue  The default value to be returned
+     * @param locale        The locale
+     * @param pattern       The convertion pattern
+     * @param locPattern    Indicate whether the pattern is localized or not
+     */
+    public DateLocaleConverter(final Object defaultValue, final Locale locale, final String pattern, final boolean locPattern) {
+
+<span class="fc" id="L222">        super(defaultValue, locale, pattern, locPattern);</span>
+<span class="fc" id="L223">    }</span>
+
+    // --------------------------------------------------------- Methods
+
+    /**
+     * Returns whether date formatting is lenient.
+     *
+     * @return true if the &lt;code&gt;DateFormat&lt;/code&gt; used for formatting is lenient
+     * @see java.text.DateFormat#isLenient
+     */
+    public boolean isLenient() {
+<span class="fc" id="L234">        return isLenient;</span>
+    }
+
+    /**
+     * Specify whether or not date-time parsing should be lenient.
+     *
+     * @param lenient true if the &lt;code&gt;DateFormat&lt;/code&gt; used for formatting should be lenient
+     * @see java.text.DateFormat#setLenient
+     */
+    public void setLenient(final boolean lenient) {
+<span class="fc" id="L244">        isLenient = lenient;</span>
+<span class="fc" id="L245">    }</span>
+
+    // --------------------------------------------------------- Methods
+
+    /**
+     * Convert the specified locale-sensitive input object into an output object of the
+     * specified type.
+     *
+     * @param value The input object to be converted
+     * @param pattern The pattern is used for the convertion
+     * @return the converted Date value
+     *
+     * @throws org.apache.commons.beanutils2.ConversionException
+     * if conversion cannot be performed successfully
+     * @throws ParseException if an error occurs parsing
+     */
+    @Override
+    protected Object parse(final Object value, String pattern) throws ParseException {
+
+        // Handle Date
+<span class="fc bfc" id="L265" title="All 2 branches covered.">        if (value instanceof java.util.Date) {</span>
+<span class="fc" id="L266">            return value;</span>
+        }
+
+        // Handle Calendar
+<span class="fc bfc" id="L270" title="All 2 branches covered.">        if (value instanceof java.util.Calendar) {</span>
+<span class="fc" id="L271">            return ((java.util.Calendar)value).getTime();</span>
+        }
+
+<span class="fc bfc" id="L274" title="All 2 branches covered.">         if (locPattern) {</span>
+<span class="fc" id="L275">             pattern = convertLocalizedPattern(pattern, locale);</span>
+         }
+
+         // Create Formatter - use default if pattern is null
+<span class="fc bfc" id="L279" title="All 2 branches covered.">         final DateFormat formatter = pattern == null ? DateFormat.getDateInstance(DateFormat.SHORT, locale)</span>
+                                                : new SimpleDateFormat(pattern, locale);
+<span class="fc" id="L281">         formatter.setLenient(isLenient);</span>
+
+
+         // Parse the Date
+<span class="fc" id="L285">        final ParsePosition pos = new ParsePosition(0);</span>
+<span class="fc" id="L286">        final String strValue = value.toString();</span>
+<span class="fc" id="L287">        final Object parsedValue = formatter.parseObject(strValue, pos);</span>
+<span class="fc bfc" id="L288" title="All 2 branches covered.">        if (pos.getErrorIndex() &gt; -1) {</span>
+<span class="fc" id="L289">            throw new ConversionException(&quot;Error parsing date '&quot; + value +</span>
+<span class="fc" id="L290">                    &quot;' at position=&quot;+ pos.getErrorIndex());</span>
+        }
+<span class="fc bfc" id="L292" title="All 2 branches covered.">        if (pos.getIndex() &lt; strValue.length()) {</span>
+<span class="fc" id="L293">            throw new ConversionException(&quot;Date '&quot; + value +</span>
+<span class="fc" id="L294">                    &quot;' contains unparsed characters from position=&quot; + pos.getIndex());</span>
+        }
+
+<span class="fc" id="L297">        return parsedValue;</span>
+     }
+
+     /**
+      * Convert a pattern from a localized format to the default format.
+      *
+      * @param locale   The locale
+      * @param localizedPattern The pattern in 'local' symbol format
+      * @return pattern in 'default' symbol format
+      */
+     private String convertLocalizedPattern(final String localizedPattern, final Locale locale) {
+
+<span class="fc bfc" id="L309" title="All 2 branches covered.">         if (localizedPattern == null) {</span>
+<span class="fc" id="L310">            return null;</span>
+         }
+
+         // Note that this is a little obtuse.
+         // However, it is the best way that anyone can come up with
+         // that works with some 1.4 series JVM.
+
+         // Get the symbols for the localized pattern
+<span class="fc" id="L318">         final DateFormatSymbols localizedSymbols = new DateFormatSymbols(locale);</span>
+<span class="fc" id="L319">         final String localChars = localizedSymbols.getLocalPatternChars();</span>
+
+<span class="fc bfc" id="L321" title="All 2 branches covered.">         if (DEFAULT_PATTERN_CHARS.equals(localChars)) {</span>
+<span class="fc" id="L322">             return localizedPattern;</span>
+         }
+
+         // Convert the localized pattern to default
+<span class="fc" id="L326">         String convertedPattern = null;</span>
+         try {
+<span class="fc" id="L328">             convertedPattern = convertPattern(localizedPattern,</span>
+                                                localChars,
+                                                DEFAULT_PATTERN_CHARS);
+<span class="fc" id="L331">         } catch (final Exception ex) {</span>
+<span class="fc" id="L332">             log.debug(&quot;Converting pattern '&quot; + localizedPattern + &quot;' for &quot; + locale, ex);</span>
+<span class="fc" id="L333">         }</span>
+<span class="fc" id="L334">         return convertedPattern;</span>
+    }
+
+    /**
+     * &lt;p&gt;Converts a Pattern from one character set to another.&lt;/p&gt;
+     */
+    private String convertPattern(final String pattern, final String fromChars, final String toChars) {
+
+<span class="fc" id="L342">        final StringBuilder converted = new StringBuilder();</span>
+<span class="fc" id="L343">        boolean quoted = false;</span>
+
+<span class="fc bfc" id="L345" title="All 2 branches covered.">        for (int i = 0; i &lt; pattern.length(); ++i) {</span>
+<span class="fc" id="L346">            char thisChar = pattern.charAt(i);</span>
+<span class="pc bpc" id="L347" title="1 of 2 branches missed.">            if (quoted) {</span>
+<span class="nc bnc" id="L348" title="All 2 branches missed.">                if (thisChar == '\'') {</span>
+<span class="nc" id="L349">                    quoted = false;</span>
+                }
+            } else {
+<span class="pc bpc" id="L352" title="1 of 2 branches missed.">                if (thisChar == '\'') {</span>
+<span class="nc" id="L353">                   quoted = true;</span>
+<span class="pc bpc" id="L354" title="2 of 8 branches missed.">                } else if ((thisChar &gt;= 'a' &amp;&amp; thisChar &lt;= 'z') ||</span>
+                           (thisChar &gt;= 'A' &amp;&amp; thisChar &lt;= 'Z')) {
+<span class="fc" id="L356">                    final int index = fromChars.indexOf(thisChar );</span>
+<span class="fc bfc" id="L357" title="All 2 branches covered.">                    if (index == -1) {</span>
+<span class="fc" id="L358">                        throw new IllegalArgumentException(</span>
+                            &quot;Illegal pattern character '&quot; + thisChar + &quot;'&quot;);
+                    }
+<span class="fc" id="L361">                    thisChar = toChars.charAt(index);</span>
+                }
+            }
+<span class="fc" id="L364">            converted.append(thisChar);</span>
+        }
+
+<span class="pc bpc" id="L367" title="1 of 2 branches missed.">        if (quoted) {</span>
+<span class="nc" id="L368">            throw new IllegalArgumentException(&quot;Unfinished quote in pattern&quot;);</span>
+        }
+
+<span class="fc" id="L371">        return converted.toString();</span>
+    }
+
+    /**
+     * This method is called at class initialization time to define the
+     * value for constant member DEFAULT_PATTERN_CHARS. All other methods needing
+     * this data should just read that constant.
+     */
+    private static String initDefaultChars() {
+<span class="fc" id="L380">        final DateFormatSymbols defaultSymbols = new DateFormatSymbols(Locale.US);</span>
+<span class="fc" id="L381">        return defaultSymbols.getLocalPatternChars();</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

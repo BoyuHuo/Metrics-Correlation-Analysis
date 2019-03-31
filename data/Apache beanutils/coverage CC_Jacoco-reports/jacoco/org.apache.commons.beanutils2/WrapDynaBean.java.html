@@ -1,0 +1,419 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WrapDynaBean.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">WrapDynaBean.java</span></div><h1>WrapDynaBean.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+package org.apache.commons.beanutils2;
+
+import java.io.Serializable;
+import java.lang.reflect.InvocationTargetException;
+
+
+/**
+ * &lt;p&gt;Implementation of &lt;code&gt;DynaBean&lt;/code&gt; that wraps a standard JavaBean
+ * instance, so that DynaBean APIs can be used to access its properties.&lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * The most common use cases for this class involve wrapping an existing java bean.
+ * (This makes it different from the typical use cases for other &lt;code&gt;DynaBean&lt;/code&gt;'s.)
+ * For example:
+ * &lt;/p&gt;
+ * &lt;pre&gt;&lt;code&gt;
+ *  Object aJavaBean = ...;
+ *  ...
+ *  DynaBean db = new WrapDynaBean(aJavaBean);
+ *  ...
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;IMPLEMENTATION NOTE&lt;/strong&gt; - This implementation does not
+ * support the &lt;code&gt;contains()&lt;/code&gt; and &lt;code&gt;remove()&lt;/code&gt; methods.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+
+public class WrapDynaBean implements DynaBean, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    // ---------------------------------------------------------- Constructors
+
+    /**
+     * Construct a new &lt;code&gt;DynaBean&lt;/code&gt; associated with the specified
+     * JavaBean instance.
+     *
+     * @param instance JavaBean instance to be wrapped
+     */
+    public WrapDynaBean(final Object instance) {
+
+<span class="fc" id="L61">        this(instance, null);</span>
+
+<span class="fc" id="L63">    }</span>
+
+    /**
+     * Creates a new instance of {@code WrapDynaBean}, associates it with the specified
+     * JavaBean instance, and initializes the bean's {@code DynaClass}. Using this
+     * constructor this {@code WrapDynaBean} instance can be assigned a class which has
+     * been configured externally. If no {@code WrapDynaClass} is provided, a new one is
+     * created using a standard mechanism.
+     *
+     * @param instance JavaBean instance to be wrapped
+     * @param cls the optional {@code WrapDynaClass} to be used for this bean
+     * @since 1.9
+     */
+<span class="fc" id="L76">    public WrapDynaBean(final Object instance, final WrapDynaClass cls) {</span>
+
+<span class="fc" id="L78">        this.instance = instance;</span>
+<span class="fc bfc" id="L79" title="All 2 branches covered.">        this.dynaClass = cls != null ? cls : (WrapDynaClass) getDynaClass();</span>
+
+<span class="fc" id="L81">    }</span>
+
+    // ---------------------------------------------------- Instance Variables
+
+
+    /**
+     * The &lt;code&gt;DynaClass&lt;/code&gt; &quot;base class&quot; that this DynaBean
+     * is associated with.
+     */
+<span class="fc" id="L90">    protected transient WrapDynaClass dynaClass = null;</span>
+
+
+    /**
+     * The JavaBean instance wrapped by this WrapDynaBean.
+     */
+<span class="fc" id="L96">    protected Object instance = null;</span>
+
+
+    // ------------------------------------------------------ DynaBean Methods
+
+
+    /**
+     * Does the specified mapped property contain a value for the specified
+     * key value?
+     *
+     * @param name Name of the property to check
+     * @param key Name of the key to check
+     * @return &lt;code&gt;true&lt;/code&gt; if the mapped property contains a value for
+     * the specified key, otherwise &lt;code&gt;false&lt;/code&gt;
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public boolean contains(final String name, final String key) {
+
+<span class="fc" id="L117">        throw new UnsupportedOperationException</span>
+                (&quot;WrapDynaBean does not support contains()&quot;);
+
+    }
+
+
+    /**
+     * Return the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @return The property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public Object get(final String name) {
+
+<span class="fc" id="L135">        Object value = null;</span>
+        try {
+<span class="fc" id="L137">            value = getPropertyUtils().getSimpleProperty(instance, name);</span>
+<span class="nc" id="L138">        } catch (final InvocationTargetException ite) {</span>
+<span class="nc" id="L139">            final Throwable cause = ite.getTargetException();</span>
+<span class="nc" id="L140">            throw new IllegalArgumentException</span>
+                    (&quot;Error reading property '&quot; + name +
+                              &quot;' nested exception - &quot; + cause);
+<span class="fc" id="L143">        } catch (final Throwable t) {</span>
+<span class="fc" id="L144">            throw new IllegalArgumentException</span>
+                    (&quot;Error reading property '&quot; + name +
+                              &quot;', exception - &quot; + t);
+<span class="fc" id="L147">        }</span>
+<span class="fc" id="L148">        return value;</span>
+
+    }
+
+
+    /**
+     * Return the value of an indexed property with the specified name.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @param index Index of the value to be retrieved
+     * @return The indexed property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not indexed
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the range of the underlying property
+     * @throws NullPointerException if no array or List has been
+     *  initialized for this property
+     */
+    @Override
+    public Object get(final String name, final int index) {
+
+<span class="fc" id="L172">        Object value = null;</span>
+        try {
+<span class="fc" id="L174">            value = getPropertyUtils().getIndexedProperty(instance, name, index);</span>
+<span class="fc" id="L175">        } catch (final IndexOutOfBoundsException e) {</span>
+<span class="fc" id="L176">            throw e;</span>
+<span class="nc" id="L177">        } catch (final InvocationTargetException ite) {</span>
+<span class="nc" id="L178">            final Throwable cause = ite.getTargetException();</span>
+<span class="nc" id="L179">            throw new IllegalArgumentException</span>
+                    (&quot;Error reading indexed property '&quot; + name +
+                              &quot;' nested exception - &quot; + cause);
+<span class="fc" id="L182">        } catch (final Throwable t) {</span>
+<span class="fc" id="L183">            throw new IllegalArgumentException</span>
+                    (&quot;Error reading indexed property '&quot; + name +
+                              &quot;', exception - &quot; + t);
+<span class="fc" id="L186">        }</span>
+<span class="fc" id="L187">        return value;</span>
+
+    }
+
+
+    /**
+     * Return the value of a mapped property with the specified name,
+     * or &lt;code&gt;null&lt;/code&gt; if there is no value for the specified key.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @param key Key of the value to be retrieved
+     * @return The mapped property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not mapped
+     */
+    @Override
+    public Object get(final String name, final String key) {
+
+<span class="fc" id="L208">        Object value = null;</span>
+        try {
+<span class="fc" id="L210">            value = getPropertyUtils().getMappedProperty(instance, name, key);</span>
+<span class="nc" id="L211">        } catch (final InvocationTargetException ite) {</span>
+<span class="nc" id="L212">            final Throwable cause = ite.getTargetException();</span>
+<span class="nc" id="L213">            throw new IllegalArgumentException</span>
+                    (&quot;Error reading mapped property '&quot; + name +
+                              &quot;' nested exception - &quot; + cause);
+<span class="fc" id="L216">        } catch (final Throwable t) {</span>
+<span class="fc" id="L217">            throw new IllegalArgumentException</span>
+                    (&quot;Error reading mapped property '&quot; + name +
+                              &quot;', exception - &quot; + t);
+<span class="fc" id="L220">        }</span>
+<span class="fc" id="L221">        return value;</span>
+
+    }
+
+
+    /**
+     * Return the &lt;code&gt;DynaClass&lt;/code&gt; instance that describes the set of
+     * properties available for this DynaBean.
+     * @return The associated DynaClass
+     */
+    @Override
+    public DynaClass getDynaClass() {
+
+<span class="fc bfc" id="L234" title="All 2 branches covered.">        if (dynaClass == null) {</span>
+<span class="fc" id="L235">            dynaClass = WrapDynaClass.createDynaClass(instance.getClass());</span>
+        }
+
+<span class="fc" id="L238">        return this.dynaClass;</span>
+
+    }
+
+
+    /**
+     * Remove any existing value for the specified key on the
+     * specified mapped property.
+     *
+     * @param name Name of the property for which a value is to
+     *  be removed
+     * @param key Key of the value to be removed
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public void remove(final String name, final String key) {
+
+
+<span class="nc" id="L258">        throw new UnsupportedOperationException</span>
+                (&quot;WrapDynaBean does not support remove()&quot;);
+
+    }
+
+
+    /**
+     * Set the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws NullPointerException if an attempt is made to set a
+     *  primitive property to null
+     */
+    @Override
+    public void set(final String name, final Object value) {
+
+        try {
+<span class="fc" id="L281">            getPropertyUtils().setSimpleProperty(instance, name, value);</span>
+<span class="nc" id="L282">        } catch (final InvocationTargetException ite) {</span>
+<span class="nc" id="L283">            final Throwable cause = ite.getTargetException();</span>
+<span class="nc" id="L284">            throw new IllegalArgumentException</span>
+                    (&quot;Error setting property '&quot; + name +
+                              &quot;' nested exception -&quot; + cause);
+<span class="fc" id="L287">        } catch (final Throwable t) {</span>
+<span class="fc" id="L288">            throw new IllegalArgumentException</span>
+                    (&quot;Error setting property '&quot; + name +
+                              &quot;', exception - &quot; + t);
+<span class="fc" id="L291">        }</span>
+
+<span class="fc" id="L293">    }</span>
+
+
+    /**
+     * Set the value of an indexed property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param index Index of the property to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not indexed
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the range of the underlying property
+     */
+    @Override
+    public void set(final String name, final int index, final Object value) {
+
+        try {
+<span class="fc" id="L316">            getPropertyUtils().setIndexedProperty(instance, name, index, value);</span>
+<span class="fc" id="L317">        } catch (final IndexOutOfBoundsException e) {</span>
+<span class="fc" id="L318">            throw e;</span>
+<span class="nc" id="L319">        } catch (final InvocationTargetException ite) {</span>
+<span class="nc" id="L320">            final Throwable cause = ite.getTargetException();</span>
+<span class="nc" id="L321">            throw new IllegalArgumentException</span>
+                    (&quot;Error setting indexed property '&quot; + name +
+                              &quot;' nested exception - &quot; + cause);
+<span class="fc" id="L324">        } catch (final Throwable t) {</span>
+<span class="fc" id="L325">            throw new IllegalArgumentException</span>
+                    (&quot;Error setting indexed property '&quot; + name +
+                              &quot;', exception - &quot; + t);
+<span class="fc" id="L328">        }</span>
+
+<span class="fc" id="L330">    }</span>
+
+
+    /**
+     * Set the value of a mapped property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param key Key of the property to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not mapped
+     */
+    @Override
+    public void set(final String name, final String key, final Object value) {
+
+        try {
+<span class="fc" id="L351">            getPropertyUtils().setMappedProperty(instance, name, key, value);</span>
+<span class="nc" id="L352">        } catch (final InvocationTargetException ite) {</span>
+<span class="nc" id="L353">            final Throwable cause = ite.getTargetException();</span>
+<span class="nc" id="L354">            throw new IllegalArgumentException</span>
+                    (&quot;Error setting mapped property '&quot; + name +
+                              &quot;' nested exception - &quot; + cause);
+<span class="fc" id="L357">        } catch (final Throwable t) {</span>
+<span class="fc" id="L358">            throw new IllegalArgumentException</span>
+                    (&quot;Error setting mapped property '&quot; + name +
+                              &quot;', exception - &quot; + t);
+<span class="fc" id="L361">        }</span>
+
+<span class="fc" id="L363">    }</span>
+
+    /**
+     * Gets the bean instance wrapped by this DynaBean.
+     * For most common use cases,
+     * this object should already be known
+     * and this method safely be ignored.
+     * But some creators of frameworks using &lt;code&gt;DynaBean&lt;/code&gt;'s may
+     * find this useful.
+     *
+     * @return the java bean Object wrapped by this &lt;code&gt;DynaBean&lt;/code&gt;
+     */
+    public Object getInstance() {
+<span class="fc" id="L376">        return instance;</span>
+    }
+
+
+    // ------------------------------------------------------ Protected Methods
+
+
+    /**
+     * Return the property descriptor for the specified property name.
+     *
+     * @param name Name of the property for which to retrieve the descriptor
+     * @return The descriptor for the specified property
+     *
+     * @throws IllegalArgumentException if this is not a valid property
+     *  name for our DynaClass
+     */
+    protected DynaProperty getDynaProperty(final String name) {
+
+<span class="nc" id="L394">        final DynaProperty descriptor = getDynaClass().getDynaProperty(name);</span>
+<span class="nc bnc" id="L395" title="All 2 branches missed.">        if (descriptor == null) {</span>
+<span class="nc" id="L396">            throw new IllegalArgumentException</span>
+                    (&quot;Invalid property name '&quot; + name + &quot;'&quot;);
+        }
+<span class="nc" id="L399">        return descriptor;</span>
+
+    }
+
+    /**
+     * Returns the {@code PropertyUtilsBean} instance to be used for accessing properties.
+     * If available, this object is obtained from the associated {@code WrapDynaClass}.
+     *
+     * @return the associated {@code PropertyUtilsBean}
+     */
+    private PropertyUtilsBean getPropertyUtils() {
+
+<span class="fc" id="L411">        PropertyUtilsBean propUtils = null;</span>
+<span class="fc bfc" id="L412" title="All 2 branches covered.">        if (dynaClass != null) {</span>
+<span class="fc" id="L413">            propUtils = dynaClass.getPropertyUtilsBean();</span>
+        }
+<span class="fc bfc" id="L415" title="All 2 branches covered.">        return propUtils != null ? propUtils : PropertyUtilsBean.getInstance();</span>
+
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,413 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>WrapDynaClass.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">WrapDynaClass.java</span></div><h1>WrapDynaClass.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2;
+
+
+import java.beans.PropertyDescriptor;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
+
+
+/**
+ * Implementation of {@link DynaClass} that wrap
+ * standard JavaBean instances.
+ * &lt;p&gt;
+ * This class should not usually need to be used directly
+ * to create new {@link WrapDynaBean} instances -
+ * it's usually better to call the {@link WrapDynaBean} constructor.
+ * For example:
+ * &lt;/p&gt;
+ * &lt;pre&gt;
+ *   Object javaBean = ...;
+ *   DynaBean wrapper = new WrapDynaBean(javaBean);
+ * &lt;/pre&gt;
+ *
+ * @version $Id$
+ */
+
+public class WrapDynaClass implements DynaClass {
+
+
+    // ----------------------------------------------------------- Constructors
+
+
+    /**
+     * Construct a new WrapDynaClass for the specified JavaBean class.  This
+     * constructor is private; WrapDynaClass instances will be created as
+     * needed via calls to the &lt;code&gt;createDynaClass(Class)&lt;/code&gt; method.
+     *
+     * @param beanClass JavaBean class to be introspected around
+     * @param propUtils the {@code PropertyUtilsBean} associated with this class
+     */
+<span class="fc" id="L60">    private WrapDynaClass(final Class&lt;?&gt; beanClass, final PropertyUtilsBean propUtils) {</span>
+
+<span class="fc" id="L62">        this.beanClassRef = new SoftReference&lt;Class&lt;?&gt;&gt;(beanClass);</span>
+<span class="fc" id="L63">        this.beanClassName = beanClass.getName();</span>
+<span class="fc" id="L64">        propertyUtilsBean = propUtils;</span>
+<span class="fc" id="L65">        introspect();</span>
+
+<span class="fc" id="L67">    }</span>
+
+
+    // ----------------------------------------------------- Instance Variables
+
+    /**
+     * Name of the JavaBean class represented by this WrapDynaClass.
+     */
+<span class="fc" id="L75">    private String beanClassName = null;</span>
+
+    /**
+     * Reference to the JavaBean class represented by this WrapDynaClass.
+     */
+<span class="fc" id="L80">    private Reference&lt;Class&lt;?&gt;&gt; beanClassRef = null;</span>
+
+    /** Stores the associated {@code PropertyUtilsBean} instance. */
+    private final PropertyUtilsBean propertyUtilsBean;
+
+    /**
+     * The set of PropertyDescriptors for this bean class.
+     */
+<span class="fc" id="L88">    protected PropertyDescriptor[] descriptors = null;</span>
+
+
+    /**
+     * The set of PropertyDescriptors for this bean class, keyed by the
+     * property name.  Individual descriptor instances will be the same
+     * instances as those in the &lt;code&gt;descriptors&lt;/code&gt; list.
+     */
+<span class="fc" id="L96">    protected HashMap&lt;String, PropertyDescriptor&gt; descriptorsMap = new HashMap&lt;&gt;();</span>
+
+
+    /**
+     * The set of dynamic properties that are part of this DynaClass.
+     */
+<span class="fc" id="L102">    protected DynaProperty[] properties = null;</span>
+
+
+    /**
+     * The set of dynamic properties that are part of this DynaClass,
+     * keyed by the property name.  Individual descriptor instances will
+     * be the same instances as those in the &lt;code&gt;properties&lt;/code&gt; list.
+     */
+<span class="fc" id="L110">    protected HashMap&lt;String, DynaProperty&gt; propertiesMap = new HashMap&lt;&gt;();</span>
+
+
+    // ------------------------------------------------------- Static Variables
+
+
+<span class="fc" id="L116">    private static final ContextClassLoaderLocal&lt;Map&lt;CacheKey, WrapDynaClass&gt;&gt; CLASSLOADER_CACHE =</span>
+<span class="fc" id="L117">        new ContextClassLoaderLocal&lt;Map&lt;CacheKey, WrapDynaClass&gt;&gt;() {</span>
+            @Override
+                protected Map&lt;CacheKey, WrapDynaClass&gt; initialValue() {
+<span class="fc" id="L120">                    return new WeakHashMap&lt;&gt;();</span>
+                }
+    };
+
+    /**
+     * Returns the cache for the already created class instances. For each
+     * combination of bean class and {@code PropertyUtilsBean} instance an
+     * entry is created in the cache.
+     * @return the cache for already created {@code WrapDynaClass} instances
+     */
+    private static Map&lt;CacheKey, WrapDynaClass&gt; getClassesCache() {
+<span class="fc" id="L131">        return CLASSLOADER_CACHE.get();</span>
+    }
+
+    
+
+
+    // ------------------------------------------------------ DynaClass Methods
+
+    /**
+     * Return the class of the underlying wrapped bean.
+     *
+     * @return the class of the underlying wrapped bean
+     * @since 1.8.0
+     */
+    protected Class&lt;?&gt; getBeanClass() {
+<span class="fc" id="L146">        return beanClassRef.get();</span>
+    }
+
+    /**
+     * Return the name of this DynaClass (analogous to the
+     * {@code getName()} method of {@code java.lang.Class}, which
+     * allows the same {@code DynaClass} implementation class to support
+     * different dynamic classes, with different sets of properties.
+     *
+     * @return the name of the DynaClass
+     */
+    @Override
+    public String getName() {
+
+<span class="nc" id="L160">        return beanClassName;</span>
+
+    }
+
+
+    /**
+     * Return a property descriptor for the specified property, if it exists;
+     * otherwise, return &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param name Name of the dynamic property for which a descriptor
+     *  is requested
+     * @return The descriptor for the specified property
+     *
+     * @throws IllegalArgumentException if no property name is specified
+     */
+    @Override
+    public DynaProperty getDynaProperty(final String name) {
+
+<span class="fc bfc" id="L178" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L179">            throw new IllegalArgumentException</span>
+                    (&quot;No property name specified&quot;);
+        }
+<span class="fc" id="L182">        return propertiesMap.get(name);</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return an array of &lt;code&gt;ProperyDescriptors&lt;/code&gt; for the properties
+     * currently defined in this DynaClass.  If no properties are defined, a
+     * zero-length array will be returned.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Should we really be implementing
+     * &lt;code&gt;getBeanInfo()&lt;/code&gt; instead, which returns property descriptors
+     * and a bunch of other stuff?&lt;/p&gt;
+     *
+     * @return the set of properties for this DynaClass
+     */
+    @Override
+    public DynaProperty[] getDynaProperties() {
+
+<span class="fc" id="L201">        return properties;</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Instantiates a new standard JavaBean instance associated with
+     * this DynaClass and return it wrapped in a new WrapDynaBean
+     * instance. &lt;strong&gt;NOTE&lt;/strong&gt; the JavaBean should have a
+     * no argument constructor.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;NOTE&lt;/strong&gt; - Most common use cases should not need to use
+     * this method. It is usually better to create new
+     * &lt;code&gt;WrapDynaBean&lt;/code&gt; instances by calling its constructor.
+     * For example:&lt;/p&gt;
+     * &lt;pre&gt;&lt;code&gt;
+     *   Object javaBean = ...;
+     *   DynaBean wrapper = new WrapDynaBean(javaBean);
+     * &lt;/code&gt;&lt;/pre&gt;
+     * &lt;p&gt;
+     * (This method is needed for some kinds of &lt;code&gt;DynaBean&lt;/code&gt; framework.)
+     * &lt;/p&gt;
+     *
+     * @return A new &lt;code&gt;DynaBean&lt;/code&gt; instance
+     * @throws IllegalAccessException if the Class or the appropriate
+     *  constructor is not accessible
+     * @throws InstantiationException if this Class represents an abstract
+     *  class, an array class, a primitive type, or void; or if instantiation
+     *  fails for some other reason
+     */
+    @Override
+    public DynaBean newInstance()
+            throws IllegalAccessException, InstantiationException {
+
+<span class="fc" id="L235">        return new WrapDynaBean(getBeanClass().newInstance());</span>
+
+    }
+
+
+    // --------------------------------------------------------- Public Methods
+
+
+    /**
+     * Return the PropertyDescriptor for the specified property name, if any;
+     * otherwise return &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param name Name of the property to be retrieved
+     * @return The descriptor for the specified property
+     */
+    public PropertyDescriptor getPropertyDescriptor(final String name) {
+
+<span class="nc" id="L252">        return descriptorsMap.get(name);</span>
+
+    }
+
+
+    // --------------------------------------------------------- Static Methods
+
+
+    /**
+     * Clear our cache of WrapDynaClass instances.
+     */
+    public static void clear() {
+
+<span class="fc" id="L265">        getClassesCache().clear();</span>
+
+<span class="fc" id="L267">    }</span>
+
+
+    /**
+     * Create (if necessary) and return a new &lt;code&gt;WrapDynaClass&lt;/code&gt;
+     * instance for the specified bean class.
+     *
+     * @param beanClass Bean class for which a WrapDynaClass is requested
+     * @return A new &lt;i&gt;Wrap&lt;/i&gt; {@link DynaClass}
+     */
+    public static WrapDynaClass createDynaClass(final Class&lt;?&gt; beanClass) {
+
+<span class="fc" id="L279">        return createDynaClass(beanClass, null);</span>
+
+    }
+
+
+    /**
+     * Create (if necessary) and return a new {@code WrapDynaClass} instance
+     * for the specified bean class using the given {@code PropertyUtilsBean}
+     * instance for introspection. Using this method a specially configured
+     * {@code PropertyUtilsBean} instance can be hooked into the introspection
+     * mechanism of the managed bean. The argument is optional; if no
+     * {@code PropertyUtilsBean} object is provided, the default instance is used.
+     * @param beanClass Bean class for which a WrapDynaClass is requested
+     * @param pu the optional {@code PropertyUtilsBean} to be used for introspection
+     * @return A new &lt;i&gt;Wrap&lt;/i&gt; {@link DynaClass}
+     * @since 1.9
+     */
+    public static WrapDynaClass createDynaClass(final Class&lt;?&gt; beanClass, final PropertyUtilsBean pu) {
+
+<span class="fc bfc" id="L298" title="All 2 branches covered.">        final PropertyUtilsBean propUtils = pu != null ? pu : PropertyUtilsBean.getInstance();</span>
+<span class="fc" id="L299">        final CacheKey key = new CacheKey(beanClass, propUtils);</span>
+<span class="fc" id="L300">        WrapDynaClass dynaClass = getClassesCache().get(key);</span>
+<span class="fc bfc" id="L301" title="All 2 branches covered.">        if (dynaClass == null) {</span>
+<span class="fc" id="L302">            dynaClass = new WrapDynaClass(beanClass, propUtils);</span>
+<span class="fc" id="L303">            getClassesCache().put(key, dynaClass);</span>
+        }
+<span class="fc" id="L305">        return dynaClass;</span>
+
+    }
+
+
+    // ------------------------------------------------------ Protected Methods
+
+    /**
+     * Returns the {@code PropertyUtilsBean} instance associated with this class. This
+     * bean is used for introspection.
+     *
+     * @return the associated {@code PropertyUtilsBean} instance
+     * @since 1.9
+     */
+    protected PropertyUtilsBean getPropertyUtilsBean() {
+<span class="fc" id="L320">        return propertyUtilsBean;</span>
+    }
+
+    /**
+     * Introspect our bean class to identify the supported properties.
+     */
+    protected void introspect() {
+
+        // Look up the property descriptors for this bean class
+<span class="fc" id="L329">        final Class&lt;?&gt; beanClass = getBeanClass();</span>
+<span class="fc" id="L330">        PropertyDescriptor[] regulars =</span>
+<span class="fc" id="L331">                getPropertyUtilsBean().getPropertyDescriptors(beanClass);</span>
+<span class="pc bpc" id="L332" title="1 of 2 branches missed.">        if (regulars == null) {</span>
+<span class="nc" id="L333">            regulars = new PropertyDescriptor[0];</span>
+        }
+<span class="fc" id="L335">        Map&lt;?, ?&gt; mappeds =</span>
+<span class="fc" id="L336">                PropertyUtils.getMappedPropertyDescriptors(beanClass);</span>
+<span class="fc bfc" id="L337" title="All 2 branches covered.">        if (mappeds == null) {</span>
+<span class="fc" id="L338">            mappeds = new HashMap&lt;&gt;();</span>
+        }
+
+        // Construct corresponding DynaProperty information
+<span class="fc" id="L342">        properties = new DynaProperty[regulars.length + mappeds.size()];</span>
+<span class="fc bfc" id="L343" title="All 2 branches covered.">        for (int i = 0; i &lt; regulars.length; i++) {</span>
+<span class="fc" id="L344">            descriptorsMap.put(regulars[i].getName(),</span>
+                    regulars[i]);
+<span class="fc" id="L346">            properties[i] =</span>
+<span class="fc" id="L347">                    new DynaProperty(regulars[i].getName(),</span>
+<span class="fc" id="L348">                            regulars[i].getPropertyType());</span>
+<span class="fc" id="L349">            propertiesMap.put(properties[i].getName(),</span>
+                    properties[i]);
+        }
+<span class="fc" id="L352">        int j = regulars.length;</span>
+<span class="fc bfc" id="L353" title="All 2 branches covered.">        for (final Map.Entry&lt;?, ?&gt; entry : mappeds.entrySet()) {</span>
+<span class="fc" id="L354">            final String name = (String) entry.getKey();</span>
+<span class="fc" id="L355">            final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L356">                    (PropertyDescriptor) entry.getValue();</span>
+<span class="fc" id="L357">            properties[j] =</span>
+<span class="fc" id="L358">                    new DynaProperty(descriptor.getName(),</span>
+                            Map.class);
+<span class="fc" id="L360">            propertiesMap.put(properties[j].getName(),</span>
+                    properties[j]);
+<span class="fc" id="L362">            j++;</span>
+<span class="fc" id="L363">        }</span>
+
+<span class="fc" id="L365">    }</span>
+
+    /**
+     * A class representing the combined key for the cache of {@code WrapDynaClass}
+     * instances. A single key consists of a bean class and an instance of
+     * {@code PropertyUtilsBean}. Instances are immutable.
+     */
+    private static class CacheKey {
+        /** The bean class. */
+        private final Class&lt;?&gt; beanClass;
+
+        /** The instance of PropertyUtilsBean. */
+        private final PropertyUtilsBean propUtils;
+
+        /**
+         * Creates a new instance of {@code CacheKey}.
+         *
+         * @param beanCls the bean class
+         * @param pu the instance of {@code PropertyUtilsBean}
+         */
+<span class="fc" id="L385">        public CacheKey(final Class&lt;?&gt; beanCls, final PropertyUtilsBean pu) {</span>
+<span class="fc" id="L386">            beanClass = beanCls;</span>
+<span class="fc" id="L387">            propUtils = pu;</span>
+<span class="fc" id="L388">        }</span>
+
+        @Override
+        public int hashCode() {
+<span class="fc" id="L392">            final int factor = 31;</span>
+<span class="fc" id="L393">            int result = 17;</span>
+<span class="fc" id="L394">            result = factor * beanClass.hashCode() + result;</span>
+<span class="fc" id="L395">            result = factor * propUtils.hashCode() + result;</span>
+<span class="fc" id="L396">            return result;</span>
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+<span class="pc bpc" id="L401" title="1 of 2 branches missed.">            if (this == obj) {</span>
+<span class="nc" id="L402">                return true;</span>
+            }
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">            if (!(obj instanceof CacheKey)) {</span>
+<span class="nc" id="L405">                return false;</span>
+            }
+
+<span class="fc" id="L408">            final CacheKey c = (CacheKey) obj;</span>
+<span class="pc bpc" id="L409" title="2 of 4 branches missed.">            return beanClass.equals(c.beanClass) &amp;&amp; propUtils.equals(c.propUtils);</span>
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

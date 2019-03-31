@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LocaleConvertUtils.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2.locale</a> &gt; <span class="el_source">LocaleConvertUtils.java</span></div><h1>LocaleConvertUtils.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2.locale;
+
+import java.util.Locale;
+
+/**
+ * &lt;p&gt;Utility methods for converting locale-sensitive String scalar values to objects of the
+ * specified Class, String arrays to arrays of the specified Class and
+ * object to locale-sensitive String scalar value.&lt;/p&gt;
+ *
+ * &lt;p&gt;The implementations for these method are provided by {@link LocaleConvertUtilsBean}.
+ * These static utility method use the default instance. More sophisticated can be provided
+ * by using a &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt; instance.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+<span class="nc" id="L33">public class LocaleConvertUtils {</span>
+
+    // ----------------------------------------------------- Instance Variables
+
+    /**
+     * &lt;p&gt;Gets the &lt;code&gt;Locale&lt;/code&gt; which will be used when
+     * no &lt;code&gt;Locale&lt;/code&gt; is passed to a method.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     * @return the default locale
+     * @see LocaleConvertUtilsBean#getDefaultLocale()
+     */
+    public static Locale getDefaultLocale() {
+
+<span class="nc" id="L47">        return LocaleConvertUtilsBean.getInstance().getDefaultLocale();</span>
+    }
+
+    /**
+     * &lt;p&gt;Sets the &lt;code&gt;Locale&lt;/code&gt; which will be used when
+     * no &lt;code&gt;Locale&lt;/code&gt; is passed to a method.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param locale the default locale
+     * @see LocaleConvertUtilsBean#setDefaultLocale(Locale)
+     */
+    public static void setDefaultLocale(final Locale locale) {
+
+<span class="nc" id="L61">        LocaleConvertUtilsBean.getInstance().setDefaultLocale(locale);</span>
+<span class="nc" id="L62">    }</span>
+
+    /**
+     * &lt;p&gt;Gets applyLocalized.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if pattern is localized,
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     * @see LocaleConvertUtilsBean#getApplyLocalized()
+     */
+    public static boolean getApplyLocalized() {
+<span class="nc" id="L74">        return LocaleConvertUtilsBean.getInstance().getApplyLocalized();</span>
+    }
+
+    /**
+     * &lt;p&gt;Sets applyLocalized.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param newApplyLocalized &lt;code&gt;true&lt;/code&gt; if pattern is localized,
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     * @see LocaleConvertUtilsBean#setApplyLocalized(boolean)
+     */
+    public static void setApplyLocalized(final boolean newApplyLocalized) {
+<span class="nc" id="L87">        LocaleConvertUtilsBean.getInstance().setApplyLocalized(newApplyLocalized);</span>
+<span class="nc" id="L88">    }</span>
+
+    // --------------------------------------------------------- Methods
+
+    /**
+     * &lt;p&gt;Convert the specified locale-sensitive value into a String.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param value The Value to be converted
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(Object)
+     */
+    public static String convert(final Object value) {
+<span class="fc" id="L102">        return LocaleConvertUtilsBean.getInstance().convert(value);</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert the specified locale-sensitive value into a String
+     * using the conversion pattern.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param value The Value to be converted
+     * @param pattern       The convertion pattern
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(Object, String)
+     */
+    public static String convert(final Object value, final String pattern) {
+<span class="nc" id="L117">        return LocaleConvertUtilsBean.getInstance().convert(value, pattern);</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert the specified locale-sensitive value into a String
+     * using the paticular convertion pattern.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param value The Value to be converted
+     * @param locale The locale
+     * @param pattern The convertion pattern
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(Object, Locale, String)
+     */
+    public static String convert(final Object value, final Locale locale, final String pattern) {
+
+<span class="nc" id="L134">        return LocaleConvertUtilsBean.getInstance().convert(value, locale, pattern);</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert the specified value to an object of the specified class (if
+     * possible).  Otherwise, return a String representation of the value.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param value The String scalar value to be converted
+     * @param clazz The Data type to which this value should be converted.
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(String, Class)
+     */
+    public static Object convert(final String value, final Class&lt;?&gt; clazz) {
+
+<span class="fc" id="L150">        return LocaleConvertUtilsBean.getInstance().convert(value, clazz);</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert the specified value to an object of the specified class (if
+     * possible) using the convertion pattern. Otherwise, return a String
+     * representation of the value.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param value The String scalar value to be converted
+     * @param clazz The Data type to which this value should be converted.
+     * @param pattern The convertion pattern
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(String, Class, String)
+     */
+    public static Object convert(final String value, final Class&lt;?&gt; clazz, final String pattern) {
+
+<span class="nc" id="L168">        return LocaleConvertUtilsBean.getInstance().convert(value, clazz, pattern);</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert the specified value to an object of the specified class (if
+     * possible) using the convertion pattern. Otherwise, return a String
+     * representation of the value.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param value The String scalar value to be converted
+     * @param clazz The Data type to which this value should be converted.
+     * @param locale The locale
+     * @param pattern The convertion pattern
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(String, Class, Locale, String)
+     */
+    public static Object convert(final String value, final Class&lt;?&gt; clazz, final Locale locale, final String pattern) {
+
+<span class="fc" id="L187">        return LocaleConvertUtilsBean.getInstance().convert(value, clazz, locale, pattern);</span>
+    }
+
+    /**
+     * &lt;p&gt;Convert an array of specified values to an array of objects of the
+     * specified class (if possible) using the convertion pattern.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param values Value to be converted (may be null)
+     * @param clazz Java array or element class to be converted to
+     * @param pattern The convertion pattern
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(String[], Class, String)
+     */
+    public static Object convert(final String[] values, final Class&lt;?&gt; clazz, final String pattern) {
+
+<span class="nc" id="L204">        return LocaleConvertUtilsBean.getInstance().convert(values, clazz, pattern);</span>
+    }
+
+   /**
+    * &lt;p&gt;Convert an array of specified values to an array of objects of the
+    * specified class (if possible).&lt;/p&gt;
+    *
+    * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+    *
+    * @param values Value to be converted (may be null)
+    * @param clazz Java array or element class to be converted to
+    * @return the converted value
+    * @see LocaleConvertUtilsBean#convert(String[], Class)
+    */
+   public static Object convert(final String[] values, final Class&lt;?&gt; clazz) {
+
+<span class="nc" id="L220">       return LocaleConvertUtilsBean.getInstance().convert(values, clazz);</span>
+   }
+
+    /**
+     * &lt;p&gt;Convert an array of specified values to an array of objects of the
+     * specified class (if possible) using the convertion pattern.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param values Value to be converted (may be null)
+     * @param clazz Java array or element class to be converted to
+     * @param locale The locale
+     * @param pattern The convertion pattern
+     * @return the converted value
+     * @see LocaleConvertUtilsBean#convert(String[], Class, Locale, String)
+     */
+    public static Object convert(final String[] values, final Class&lt;?&gt; clazz, final Locale locale, final String pattern) {
+
+<span class="fc" id="L238">        return LocaleConvertUtilsBean.getInstance().convert(values, clazz, locale, pattern);</span>
+    }
+
+    /**
+     * &lt;p&gt;Register a custom {@link LocaleConverter} for the specified destination
+     * &lt;code&gt;Class&lt;/code&gt;, replacing any previously registered converter.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param converter The LocaleConverter to be registered
+     * @param clazz The Destination class for conversions performed by this
+     *  Converter
+     * @param locale The locale
+     * @see LocaleConvertUtilsBean#register(LocaleConverter, Class, Locale)
+     */
+    public static void register(final LocaleConverter converter, final Class&lt;?&gt; clazz, final Locale locale) {
+
+<span class="fc" id="L255">        LocaleConvertUtilsBean.getInstance().register(converter, clazz, locale);</span>
+<span class="fc" id="L256">    }</span>
+
+    /**
+     * &lt;p&gt;Remove any registered {@link LocaleConverter}.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @see LocaleConvertUtilsBean#deregister()
+     */
+    public static void deregister() {
+
+<span class="fc" id="L267">       LocaleConvertUtilsBean.getInstance().deregister();</span>
+<span class="fc" id="L268">    }</span>
+
+
+    /**
+     * &lt;p&gt;Remove any registered {@link LocaleConverter} for the specified locale.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param locale The locale
+     * @see LocaleConvertUtilsBean#deregister(Locale)
+     */
+    public static void deregister(final Locale locale) {
+
+<span class="nc" id="L281">        LocaleConvertUtilsBean.getInstance().deregister(locale);</span>
+<span class="nc" id="L282">    }</span>
+
+
+    /**
+     * &lt;p&gt;Remove any registered {@link LocaleConverter} for the specified locale and Class.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param clazz Class for which to remove a registered Converter
+     * @param locale The locale
+     * @see LocaleConvertUtilsBean#deregister(Class, Locale)
+     */
+    public static void deregister(final Class&lt;?&gt; clazz, final Locale locale) {
+
+<span class="nc" id="L296">        LocaleConvertUtilsBean.getInstance().deregister(clazz, locale);</span>
+<span class="nc" id="L297">    }</span>
+
+    /**
+     * &lt;p&gt;Look up and return any registered {@link LocaleConverter} for the specified
+     * destination class and locale; if there is no registered Converter, return
+     * &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;For more details see &lt;code&gt;LocaleConvertUtilsBean&lt;/code&gt;&lt;/p&gt;
+     *
+     * @param clazz Class for which to return a registered Converter
+     * @param locale The Locale
+     * @return The registered locale Converter, if any
+     * @see LocaleConvertUtilsBean#lookup(Class, Locale)
+     */
+    public static LocaleConverter lookup(final Class&lt;?&gt; clazz, final Locale locale) {
+
+<span class="nc" id="L313">        return LocaleConvertUtilsBean.getInstance().lookup(clazz, locale);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>DynaProperty.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">DynaProperty.java</span></div><h1>DynaProperty.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+package org.apache.commons.beanutils2;
+
+
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.io.StreamCorruptedException;
+import java.util.List;
+import java.util.Map;
+
+
+/**
+ * &lt;p&gt;The metadata describing an individual property of a DynaBean.&lt;/p&gt;
+ *
+ * &lt;p&gt;The meta contains an &lt;em&gt;optional&lt;/em&gt; content type property ({@link #getContentType})
+ * for use by mapped and iterated properties.
+ * A mapped or iterated property may choose to indicate the type it expects.
+ * The DynaBean implementation may choose to enforce this type on its entries.
+ * Alternatively, an implementatin may choose to ignore this property.
+ * All keys for maps must be of type String so no meta data is needed for map keys.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+
+public class DynaProperty implements Serializable {
+
+    // ----------------------------------------------------------- Constants
+
+	private static final long serialVersionUID = -3084907613499830175L;
+	/*
+     * There are issues with serializing primitive class types on certain JVM versions
+     * (including java 1.3).
+     * This class uses a custom serialization implementation that writes an integer
+     * for these primitive class.
+     * This list of constants are the ones used in serialization.
+     * If these values are changed, then older versions will no longer be read correctly
+     */
+    private static final int BOOLEAN_TYPE = 1;
+    private static final int BYTE_TYPE = 2;
+    private static final int CHAR_TYPE = 3;
+    private static final int DOUBLE_TYPE = 4;
+    private static final int FLOAT_TYPE = 5;
+    private static final int INT_TYPE = 6;
+    private static final int LONG_TYPE = 7;
+    private static final int SHORT_TYPE = 8;
+
+
+    // ----------------------------------------------------------- Constructors
+
+
+    /**
+     * Construct a property that accepts any data type.
+     *
+     * @param name Name of the property being described
+     */
+    public DynaProperty(final String name) {
+
+<span class="fc" id="L77">        this(name, Object.class);</span>
+
+<span class="fc" id="L79">    }</span>
+
+
+    /**
+     * Construct a property of the specified data type.
+     *
+     * @param name Name of the property being described
+     * @param type Java class representing the property data type
+     */
+    public DynaProperty(final String name, final Class&lt;?&gt; type) {
+
+<span class="fc" id="L90">        super();</span>
+<span class="fc" id="L91">        this.name = name;</span>
+<span class="fc" id="L92">        this.type = type;</span>
+<span class="fc bfc" id="L93" title="All 4 branches covered.">        if (type != null &amp;&amp; type.isArray()) {</span>
+<span class="fc" id="L94">            this.contentType = type.getComponentType();</span>
+        }
+
+<span class="fc" id="L97">    }</span>
+
+    /**
+     * Construct an indexed or mapped &lt;code&gt;DynaProperty&lt;/code&gt; that supports (pseudo)-introspection
+     * of the content type.
+     *
+     * @param name Name of the property being described
+     * @param type Java class representing the property data type
+     * @param contentType Class that all indexed or mapped elements are instances of
+     */
+    public DynaProperty(final String name, final Class&lt;?&gt; type, final Class&lt;?&gt; contentType) {
+
+<span class="fc" id="L109">        super();</span>
+<span class="fc" id="L110">        this.name = name;</span>
+<span class="fc" id="L111">        this.type = type;</span>
+<span class="fc" id="L112">        this.contentType = contentType;</span>
+
+<span class="fc" id="L114">    }</span>
+
+    // ------------------------------------------------------------- Properties
+
+    /** Property name */
+<span class="fc" id="L119">    protected String name = null;</span>
+    /**
+     * Get the name of this property.
+     * @return the name of the property
+     */
+    public String getName() {
+<span class="fc" id="L125">        return this.name;</span>
+    }
+
+    /** Property type */
+<span class="fc" id="L129">    protected transient Class&lt;?&gt; type = null;</span>
+    /**
+     * &lt;p&gt;Gets the Java class representing the data type of the underlying property
+     * values.&lt;/p&gt;
+     *
+     * &lt;p&gt;There are issues with serializing primitive class types on certain JVM versions
+     * (including java 1.3).
+     * Therefore, this field &lt;strong&gt;must not be serialized using the standard methods&lt;/strong&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;Please leave this field as &lt;code&gt;transient&lt;/code&gt;&lt;/strong&gt;&lt;/p&gt;
+     *
+     * @return the property type
+     */
+    public Class&lt;?&gt; getType() {
+<span class="fc" id="L143">        return this.type;</span>
+    }
+
+
+    /** The &lt;em&gt;(optional)&lt;/em&gt; type of content elements for indexed &lt;code&gt;DynaProperty&lt;/code&gt; */
+    protected transient Class&lt;?&gt; contentType;
+    /**
+     * Gets the &lt;em&gt;(optional)&lt;/em&gt; type of the indexed content for &lt;code&gt;DynaProperty&lt;/code&gt;'s
+     * that support this feature.
+     *
+     * &lt;p&gt;There are issues with serializing primitive class types on certain JVM versions
+     * (including java 1.3).
+     * Therefore, this field &lt;strong&gt;must not be serialized using the standard methods&lt;/strong&gt;.&lt;/p&gt;
+     *
+     * @return the Class for the content type if this is an indexed &lt;code&gt;DynaProperty&lt;/code&gt;
+     * and this feature is supported. Otherwise null.
+     */
+    public Class&lt;?&gt; getContentType() {
+<span class="fc" id="L161">        return contentType;</span>
+    }
+
+    // --------------------------------------------------------- Public Methods
+
+
+    /**
+     * Does this property represent an indexed value (ie an array or List)?
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the property is indexed (i.e. is a List or
+     * array), otherwise &lt;code&gt;false&lt;/code&gt;
+     */
+    public boolean isIndexed() {
+
+<span class="pc bpc" id="L175" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L176">            return false;</span>
+<span class="fc bfc" id="L177" title="All 2 branches covered.">        } else if (type.isArray()) {</span>
+<span class="fc" id="L178">            return true;</span>
+<span class="fc bfc" id="L179" title="All 2 branches covered.">        } else if (List.class.isAssignableFrom(type)) {</span>
+<span class="fc" id="L180">            return true;</span>
+        } else {
+<span class="fc" id="L182">            return false;</span>
+        }
+
+    }
+
+
+    /**
+     * Does this property represent a mapped value (ie a Map)?
+     *
+     * @return &lt;code&gt;true&lt;/code&gt; if the property is a Map
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     */
+    public boolean isMapped() {
+
+<span class="pc bpc" id="L196" title="1 of 2 branches missed.">        if (type == null) {</span>
+<span class="nc" id="L197">            return false;</span>
+        }
+<span class="fc" id="L199">        return Map.class.isAssignableFrom(type);</span>
+
+    }
+
+    /**
+     * Checks this instance against the specified Object for equality. Overrides the
+     * default refererence test for equality provided by {@link java.lang.Object#equals(Object)}
+     * @param obj The object to compare to
+     * @return &lt;code&gt;true&lt;/code&gt; if object is a dyna property with the same name
+     * type and content type, otherwise &lt;code&gt;false&lt;/code&gt;
+     * @since 1.8.0
+     */
+    @Override
+    public boolean equals(final Object obj) {
+
+<span class="fc" id="L214">        boolean result = false;</span>
+
+<span class="pc bpc" id="L216" title="1 of 2 branches missed.">        result = obj == this;</span>
+
+<span class="pc bpc" id="L218" title="1 of 4 branches missed.">        if (!result &amp;&amp; obj instanceof DynaProperty) {</span>
+<span class="fc" id="L219">            final DynaProperty that = (DynaProperty) obj;</span>
+<span class="pc bpc" id="L220" title="3 of 4 branches missed.">            result =</span>
+<span class="pc bpc" id="L221" title="3 of 6 branches missed.">               (this.name == null ? that.name == null : this.name.equals(that.name)) &amp;&amp;</span>
+<span class="pc bpc" id="L222" title="2 of 6 branches missed.">               (this.type == null ? that.type == null : this.type.equals(that.type)) &amp;&amp;</span>
+<span class="pc bpc" id="L223" title="1 of 2 branches missed.">               (this.contentType == null ? that.contentType == null : this.contentType.equals(that.contentType));</span>
+        }
+
+<span class="fc" id="L226">        return result;</span>
+    }
+
+    /**
+     * @return the hashcode for this dyna property
+     * @see java.lang.Object#hashCode
+     * @since 1.8.0
+     */
+    @Override
+    public int hashCode() {
+
+<span class="fc" id="L237">       int result = 1;</span>
+
+<span class="pc bpc" id="L239" title="1 of 2 branches missed.">       result = result * 31 + (name == null ? 0 : name.hashCode());</span>
+<span class="pc bpc" id="L240" title="1 of 2 branches missed.">       result = result * 31 + (type == null ? 0 : type.hashCode());</span>
+<span class="fc bfc" id="L241" title="All 2 branches covered.">       result = result * 31 + (contentType == null ? 0 : contentType.hashCode());</span>
+
+<span class="fc" id="L243">       return result;</span>
+    }
+
+    /**
+     * Return a String representation of this Object.
+     * @return a String representation of the dyna property
+     */
+    @Override
+    public String toString() {
+
+<span class="nc" id="L253">        final StringBuilder sb = new StringBuilder(&quot;DynaProperty[name=&quot;);</span>
+<span class="nc" id="L254">        sb.append(this.name);</span>
+<span class="nc" id="L255">        sb.append(&quot;,type=&quot;);</span>
+<span class="nc" id="L256">        sb.append(this.type);</span>
+<span class="nc bnc" id="L257" title="All 4 branches missed.">        if (isMapped() || isIndexed()) {</span>
+<span class="nc" id="L258">            sb.append(&quot; &lt;&quot;).append(this.contentType).append(&quot;&gt;&quot;);</span>
+        }
+<span class="nc" id="L260">        sb.append(&quot;]&quot;);</span>
+<span class="nc" id="L261">        return sb.toString();</span>
+
+    }
+
+    // --------------------------------------------------------- Serialization helper methods
+
+    /**
+     * Writes this object safely.
+     * There are issues with serializing primitive class types on certain JVM versions
+     * (including java 1.3).
+     * This method provides a workaround.
+     *
+     * @param out {@link ObjectOutputStream} to write object to
+     * @throws IOException if the object can't be written
+     */
+    private void writeObject(final ObjectOutputStream out) throws IOException {
+
+<span class="fc" id="L278">        writeAnyClass(this.type,out);</span>
+
+<span class="fc bfc" id="L280" title="All 4 branches covered.">        if (isMapped() || isIndexed()) {</span>
+<span class="fc" id="L281">            writeAnyClass(this.contentType,out);</span>
+        }
+
+        // write out other values
+<span class="fc" id="L285">        out.defaultWriteObject();</span>
+<span class="fc" id="L286">    }</span>
+
+    /**
+     * Write a class using safe encoding to workaround java 1.3 serialization bug.
+     */
+    private void writeAnyClass(final Class&lt;?&gt; clazz, final ObjectOutputStream out) throws IOException {
+        // safely write out any class
+<span class="fc" id="L293">        int primitiveType = 0;</span>
+<span class="fc bfc" id="L294" title="All 2 branches covered.">        if (Boolean.TYPE.equals(clazz)) {</span>
+<span class="fc" id="L295">            primitiveType = BOOLEAN_TYPE;</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">        } else if (Byte.TYPE.equals(clazz)) {</span>
+<span class="nc" id="L297">            primitiveType = BYTE_TYPE;</span>
+<span class="pc bpc" id="L298" title="1 of 2 branches missed.">        } else if (Character.TYPE.equals(clazz)) {</span>
+<span class="nc" id="L299">            primitiveType = CHAR_TYPE;</span>
+<span class="fc bfc" id="L300" title="All 2 branches covered.">        } else if (Double.TYPE.equals(clazz)) {</span>
+<span class="fc" id="L301">            primitiveType = DOUBLE_TYPE;</span>
+<span class="fc bfc" id="L302" title="All 2 branches covered.">        } else if (Float.TYPE.equals(clazz)) {</span>
+<span class="fc" id="L303">            primitiveType = FLOAT_TYPE;</span>
+<span class="fc bfc" id="L304" title="All 2 branches covered.">        } else if (Integer.TYPE.equals(clazz)) {</span>
+<span class="fc" id="L305">            primitiveType = INT_TYPE;</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">        } else if (Long.TYPE.equals(clazz)) {</span>
+<span class="fc" id="L307">            primitiveType = LONG_TYPE;</span>
+<span class="fc bfc" id="L308" title="All 2 branches covered.">        } else if (Short.TYPE.equals(clazz)) {</span>
+<span class="fc" id="L309">            primitiveType = SHORT_TYPE;</span>
+        }
+
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        if (primitiveType == 0) {</span>
+            // then it's not a primitive type
+<span class="fc" id="L314">            out.writeBoolean(false);</span>
+<span class="fc" id="L315">            out.writeObject(clazz);</span>
+        } else {
+            // we'll write out a constant instead
+<span class="fc" id="L318">            out.writeBoolean(true);</span>
+<span class="fc" id="L319">            out.writeInt(primitiveType);</span>
+        }
+<span class="fc" id="L321">    }</span>
+
+    /**
+     * Reads field values for this object safely.
+     * There are issues with serializing primitive class types on certain JVM versions
+     * (including java 1.3).
+     * This method provides a workaround.
+     *
+     * @param in {@link ObjectInputStream} to read object from
+     * @throws StreamCorruptedException when the stream data values are outside expected range
+     * @throws IOException if the input stream can't be read
+     * @throws ClassNotFoundException When trying to read an object of class that is not on the classpath
+     */
+    private void readObject(final ObjectInputStream in) throws IOException, ClassNotFoundException {
+
+<span class="fc" id="L336">        this.type = readAnyClass(in);</span>
+
+<span class="fc bfc" id="L338" title="All 4 branches covered.">        if (isMapped() || isIndexed()) {</span>
+<span class="fc" id="L339">            this.contentType = readAnyClass(in);</span>
+        }
+
+        // read other values
+<span class="fc" id="L343">        in.defaultReadObject();</span>
+<span class="fc" id="L344">    }</span>
+
+
+    /**
+     * Reads a class using safe encoding to workaround java 1.3 serialization bug.
+     */
+    private Class&lt;?&gt; readAnyClass(final ObjectInputStream in) throws IOException, ClassNotFoundException {
+        // read back type class safely
+<span class="fc bfc" id="L352" title="All 2 branches covered.">        if (in.readBoolean()) {</span>
+            // it's a type constant
+<span class="pc bpc" id="L354" title="3 of 9 branches missed.">            switch (in.readInt()) {</span>
+
+<span class="fc" id="L356">                case BOOLEAN_TYPE: return   Boolean.TYPE;</span>
+<span class="nc" id="L357">                case BYTE_TYPE:    return      Byte.TYPE;</span>
+<span class="nc" id="L358">                case CHAR_TYPE:    return Character.TYPE;</span>
+<span class="fc" id="L359">                case DOUBLE_TYPE:  return    Double.TYPE;</span>
+<span class="fc" id="L360">                case FLOAT_TYPE:   return     Float.TYPE;</span>
+<span class="fc" id="L361">                case INT_TYPE:     return   Integer.TYPE;</span>
+<span class="fc" id="L362">                case LONG_TYPE:    return      Long.TYPE;</span>
+<span class="fc" id="L363">                case SHORT_TYPE:   return     Short.TYPE;</span>
+                default:
+                    // something's gone wrong
+<span class="nc" id="L366">                    throw new StreamCorruptedException(</span>
+                        &quot;Invalid primitive type. &quot;
+                        + &quot;Check version of beanutils used to serialize is compatible.&quot;);
+
+            }
+
+        }
+        // it's another class
+<span class="fc" id="L374">        return (Class&lt;?&gt;) in.readObject();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

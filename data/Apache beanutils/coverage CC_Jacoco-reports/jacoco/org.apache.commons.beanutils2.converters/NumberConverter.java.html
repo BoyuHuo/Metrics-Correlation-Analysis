@@ -1,0 +1,567 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>NumberConverter.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2.converters</a> &gt; <span class="el_source">NumberConverter.java</span></div><h1>NumberConverter.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2.converters;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.text.NumberFormat;
+import java.text.ParsePosition;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
+
+import org.apache.commons.beanutils2.ConversionException;
+
+/**
+ * {@link org.apache.commons.beanutils2.Converter} implementaion that handles conversion
+ * to and from &lt;b&gt;java.lang.Number&lt;/b&gt; objects.
+ * &lt;p&gt;
+ * This implementation handles conversion for the following
+ * &lt;code&gt;java.lang.Number&lt;/code&gt; types.
+ * &lt;ul&gt;
+ *     &lt;li&gt;&lt;code&gt;java.lang.Byte&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.lang.Short&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.lang.Integer&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.lang.Long&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.lang.Float&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.lang.Double&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.math.BigDecimal&lt;/code&gt;&lt;/li&gt;
+ *     &lt;li&gt;&lt;code&gt;java.math.BigInteger&lt;/code&gt;&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h3&gt;String Conversions (to and from)&lt;/h3&gt;
+ * This class provides a number of ways in which number
+ * conversions to/from Strings can be achieved:
+ * &lt;ul&gt;
+ *    &lt;li&gt;Using the default format for the default Locale, configure using:
+ *        &lt;ul&gt;
+ *          &lt;li&gt;&lt;code&gt;setUseLocaleFormat(true)&lt;/code&gt;&lt;/li&gt;
+ *        &lt;/ul&gt;
+ *    &lt;/li&gt;
+ *    &lt;li&gt;Using the default format for a specified Locale, configure using:
+ *        &lt;ul&gt;
+ *          &lt;li&gt;&lt;code&gt;setLocale(Locale)&lt;/code&gt;&lt;/li&gt;
+ *        &lt;/ul&gt;
+ *    &lt;/li&gt;
+ *    &lt;li&gt;Using a specified pattern for the default Locale, configure using:
+ *        &lt;ul&gt;
+ *          &lt;li&gt;&lt;code&gt;setPattern(String)&lt;/code&gt;&lt;/li&gt;
+ *        &lt;/ul&gt;
+ *    &lt;/li&gt;
+ *    &lt;li&gt;Using a specified pattern for a specified Locale, configure using:
+ *        &lt;ul&gt;
+ *          &lt;li&gt;&lt;code&gt;setPattern(String)&lt;/code&gt;&lt;/li&gt;
+ *          &lt;li&gt;&lt;code&gt;setLocale(Locale)&lt;/code&gt;&lt;/li&gt;
+ *        &lt;/ul&gt;
+ *    &lt;/li&gt;
+ *    &lt;li&gt;If none of the above are configured the
+ *        &lt;code&gt;toNumber(String)&lt;/code&gt; method is used to convert
+ *        from String to Number and the Number's
+ *        &lt;code&gt;toString()&lt;/code&gt; method used to convert from
+ *        Number to String.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;
+ * &lt;strong&gt;N.B.&lt;/strong&gt;Patterns can only be specified using the &lt;i&gt;standard&lt;/i&gt;
+ * pattern characters and NOT in &lt;i&gt;localized&lt;/i&gt; form (see &lt;code&gt;java.text.DecimalFormat&lt;/code&gt;).
+ * For example to cater for number styles used in Germany such as &lt;code&gt;0.000,00&lt;/code&gt; the pattern
+ * is specified in the normal form &lt;code&gt;0,000.00&lt;/code&gt; and the locale set to &lt;code&gt;Locale.GERMANY&lt;/code&gt;.
+ *
+ * @version $Id$
+ * @since 1.8.0
+ */
+public abstract class NumberConverter extends AbstractConverter {
+
+<span class="fc" id="L91">    private static final Integer ZERO = Integer.valueOf(0);</span>
+<span class="fc" id="L92">    private static final Integer ONE  = Integer.valueOf(1);</span>
+
+    private String pattern;
+    private final boolean allowDecimals;
+    private boolean useLocaleFormat;
+    private Locale locale;
+
+    // ----------------------------------------------------------- Constructors
+
+    /**
+     * Construct a &lt;b&gt;java.lang.Number&lt;/b&gt; &lt;i&gt;Converter&lt;/i&gt;
+     * that throws a &lt;code&gt;ConversionException&lt;/code&gt; if a error occurs.
+     *
+     * @param allowDecimals Indicates whether decimals are allowed
+     */
+    public NumberConverter(final boolean allowDecimals) {
+<span class="fc" id="L108">        super();</span>
+<span class="fc" id="L109">        this.allowDecimals = allowDecimals;</span>
+<span class="fc" id="L110">    }</span>
+
+    /**
+     * Construct a &lt;code&gt;java.lang.Number&lt;/code&gt; &lt;i&gt;Converter&lt;/i&gt; that returns
+     * a default value if an error occurs.
+     *
+     * @param allowDecimals Indicates whether decimals are allowed
+     * @param defaultValue The default value to be returned
+     */
+    public NumberConverter(final boolean allowDecimals, final Object defaultValue) {
+<span class="fc" id="L120">        super();</span>
+<span class="fc" id="L121">        this.allowDecimals = allowDecimals;</span>
+<span class="fc" id="L122">        setDefaultValue(defaultValue);</span>
+<span class="fc" id="L123">    }</span>
+
+    // --------------------------------------------------------- Public Methods
+
+    /**
+     * Return whether decimals are allowed in the number.
+     *
+     * @return Whether decimals are allowed in the number
+     */
+    public boolean isAllowDecimals() {
+<span class="nc" id="L133">        return allowDecimals;</span>
+    }
+
+    /**
+     * Set whether a format should be used to convert
+     * the Number.
+     *
+     * @param useLocaleFormat &lt;code&gt;true&lt;/code&gt; if a number format
+     * should be used.
+     */
+    public void setUseLocaleFormat(final boolean useLocaleFormat) {
+<span class="fc" id="L144">        this.useLocaleFormat = useLocaleFormat;</span>
+<span class="fc" id="L145">    }</span>
+
+    /**
+     * Return the number format pattern used to convert
+     * Numbers to/from a &lt;code&gt;java.lang.String&lt;/code&gt;
+     * (or &lt;code&gt;null&lt;/code&gt; if none specified).
+     * &lt;p&gt;
+     * See &lt;code&gt;java.text.DecimalFormat&lt;/code&gt; for details
+     * of how to specify the pattern.
+     *
+     * @return The format pattern.
+     */
+    public String getPattern() {
+<span class="nc" id="L158">        return pattern;</span>
+    }
+
+    /**
+     * Set a number format pattern to use to convert
+     * Numbers to/from a &lt;code&gt;java.lang.String&lt;/code&gt;.
+     * &lt;p&gt;
+     * See &lt;code&gt;java.text.DecimalFormat&lt;/code&gt; for details
+     * of how to specify the pattern.
+     *
+     * @param pattern The format pattern.
+     */
+    public void setPattern(final String pattern) {
+<span class="fc" id="L171">        this.pattern = pattern;</span>
+<span class="fc" id="L172">        setUseLocaleFormat(true);</span>
+<span class="fc" id="L173">    }</span>
+
+    /**
+     * Return the Locale for the &lt;i&gt;Converter&lt;/i&gt;
+     * (or &lt;code&gt;null&lt;/code&gt; if none specified).
+     *
+     * @return The locale to use for conversion
+     */
+    public Locale getLocale() {
+<span class="nc" id="L182">        return locale;</span>
+    }
+
+    /**
+     * Set the Locale for the &lt;i&gt;Converter&lt;/i&gt;.
+     *
+     * @param locale The locale to use for conversion
+     */
+    public void setLocale(final Locale locale) {
+<span class="fc" id="L191">        this.locale = locale;</span>
+<span class="fc" id="L192">        setUseLocaleFormat(true);</span>
+<span class="fc" id="L193">    }</span>
+
+    // ------------------------------------------------------ Protected Methods
+
+    /**
+     * Convert an input Number object into a String.
+     *
+     * @param value The input value to be converted
+     * @return the converted String value.
+     * @throws Throwable if an error occurs converting to a String
+     */
+    @Override
+    protected String convertToString(final Object value) throws Throwable {
+
+<span class="fc" id="L207">        String result = null;</span>
+<span class="pc bpc" id="L208" title="1 of 4 branches missed.">        if (useLocaleFormat &amp;&amp; value instanceof Number) {</span>
+<span class="fc" id="L209">            final NumberFormat format = getFormat();</span>
+<span class="fc" id="L210">            format.setGroupingUsed(false);</span>
+<span class="fc" id="L211">            result = format.format(value);</span>
+<span class="pc bpc" id="L212" title="1 of 2 branches missed.">            if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L213">                log().debug(&quot;    Converted  to String using format '&quot; + result + &quot;'&quot;);</span>
+            }
+
+<span class="fc" id="L216">        } else {</span>
+<span class="fc" id="L217">            result = value.toString();</span>
+<span class="pc bpc" id="L218" title="1 of 2 branches missed.">            if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L219">                log().debug(&quot;    Converted  to String using toString() '&quot; + result + &quot;'&quot;);</span>
+            }
+        }
+<span class="fc" id="L222">        return result;</span>
+
+    }
+
+    /**
+     * Convert the input object into a Number object of the
+     * specified type.
+     *
+     * @param &lt;T&gt; Target type of the conversion.
+     * @param targetType Data type to which this value should be converted.
+     * @param value The input value to be converted.
+     * @return The converted value.
+     * @throws Throwable if an error occurs converting to the specified type
+     */
+    @Override
+    protected &lt;T&gt; T convertToType(final Class&lt;T&gt; targetType, final Object value) throws Throwable {
+
+<span class="fc" id="L239">        final Class&lt;?&gt; sourceType = value.getClass();</span>
+        // Handle Number
+<span class="fc bfc" id="L241" title="All 2 branches covered.">        if (value instanceof Number) {</span>
+<span class="fc" id="L242">            return toNumber(sourceType, targetType, (Number)value);</span>
+        }
+
+        // Handle Boolean
+<span class="fc bfc" id="L246" title="All 2 branches covered.">        if (value instanceof Boolean) {</span>
+<span class="fc bfc" id="L247" title="All 2 branches covered.">            return toNumber(sourceType, targetType, ((Boolean)value).booleanValue() ? ONE : ZERO);</span>
+        }
+
+        // Handle Date --&gt; Long
+<span class="fc bfc" id="L251" title="All 4 branches covered.">        if (value instanceof Date &amp;&amp; Long.class.equals(targetType)) {</span>
+<span class="fc" id="L252">            return targetType.cast(Long.valueOf(((Date)value).getTime()));</span>
+        }
+
+        // Handle Calendar --&gt; Long
+<span class="fc bfc" id="L256" title="All 4 branches covered.">        if (value instanceof Calendar  &amp;&amp; Long.class.equals(targetType)) {</span>
+<span class="fc" id="L257">            return targetType.cast(Long.valueOf(((Calendar)value).getTime().getTime()));</span>
+        }
+
+        // Convert all other types to String &amp; handle
+<span class="fc" id="L261">        final String stringValue = value.toString().trim();</span>
+<span class="fc bfc" id="L262" title="All 2 branches covered.">        if (stringValue.length() == 0) {</span>
+<span class="fc" id="L263">            return handleMissing(targetType);</span>
+        }
+
+        // Convert/Parse a String
+<span class="fc" id="L267">        Number number = null;</span>
+<span class="fc bfc" id="L268" title="All 2 branches covered.">        if (useLocaleFormat) {</span>
+<span class="fc" id="L269">            final NumberFormat format = getFormat();</span>
+<span class="fc" id="L270">            number = parse(sourceType, targetType, stringValue, format);</span>
+<span class="fc" id="L271">        } else {</span>
+<span class="pc bpc" id="L272" title="1 of 2 branches missed.">            if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L273">                log().debug(&quot;    No NumberFormat, using default conversion&quot;);</span>
+            }
+<span class="fc" id="L275">            number = toNumber(sourceType, targetType, stringValue);</span>
+        }
+
+        // Ensure the correct number type is returned
+<span class="fc" id="L279">        return toNumber(sourceType, targetType, number);</span>
+
+    }
+
+    /**
+     * Convert any Number object to the specified type for this
+     * &lt;i&gt;Converter&lt;/i&gt;.
+     * &lt;p&gt;
+     * This method handles conversion to the following types:
+     * &lt;ul&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Byte&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Short&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Integer&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Long&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Float&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Double&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.math.BigDecimal&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.math.BigInteger&lt;/code&gt;&lt;/li&gt;
+     * &lt;/ul&gt;
+     * @param sourceType The type being converted from
+     * @param targetType The Number type to convert to
+     * @param value The Number to convert.
+     *
+     * @return The converted value.
+     */
+    private &lt;T&gt; T toNumber(final Class&lt;?&gt; sourceType, final Class&lt;T&gt; targetType, final Number value) {
+
+        // Correct Number type already
+<span class="fc bfc" id="L307" title="All 2 branches covered.">        if (targetType.equals(value.getClass())) {</span>
+<span class="fc" id="L308">            return targetType.cast(value);</span>
+        }
+
+        // Byte
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        if (targetType.equals(Byte.class)) {</span>
+<span class="fc" id="L313">            final long longValue = value.longValue();</span>
+<span class="fc bfc" id="L314" title="All 2 branches covered.">            if (longValue &gt; Byte.MAX_VALUE) {</span>
+<span class="fc" id="L315">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L316">                        + &quot;' is too large for &quot; + toString(targetType));</span>
+            }
+<span class="fc bfc" id="L318" title="All 2 branches covered.">            if (longValue &lt; Byte.MIN_VALUE) {</span>
+<span class="fc" id="L319">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L320">                        + &quot;' is too small &quot; + toString(targetType));</span>
+            }
+<span class="fc" id="L322">            return targetType.cast(Byte.valueOf(value.byteValue()));</span>
+        }
+
+        // Short
+<span class="fc bfc" id="L326" title="All 2 branches covered.">        if (targetType.equals(Short.class)) {</span>
+<span class="fc" id="L327">            final long longValue = value.longValue();</span>
+<span class="fc bfc" id="L328" title="All 2 branches covered.">            if (longValue &gt; Short.MAX_VALUE) {</span>
+<span class="fc" id="L329">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L330">                        + &quot;' is too large for &quot; + toString(targetType));</span>
+            }
+<span class="fc bfc" id="L332" title="All 2 branches covered.">            if (longValue &lt; Short.MIN_VALUE) {</span>
+<span class="fc" id="L333">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L334">                        + &quot;' is too small &quot; + toString(targetType));</span>
+            }
+<span class="fc" id="L336">            return targetType.cast(Short.valueOf(value.shortValue()));</span>
+        }
+
+        // Integer
+<span class="fc bfc" id="L340" title="All 2 branches covered.">        if (targetType.equals(Integer.class)) {</span>
+<span class="fc" id="L341">            final long longValue = value.longValue();</span>
+<span class="fc bfc" id="L342" title="All 2 branches covered.">            if (longValue &gt; Integer.MAX_VALUE) {</span>
+<span class="fc" id="L343">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L344">                        + &quot;' is too large for &quot; + toString(targetType));</span>
+            }
+<span class="fc bfc" id="L346" title="All 2 branches covered.">            if (longValue &lt; Integer.MIN_VALUE) {</span>
+<span class="fc" id="L347">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L348">                        + &quot;' is too small &quot; + toString(targetType));</span>
+            }
+<span class="fc" id="L350">            return targetType.cast(Integer.valueOf(value.intValue()));</span>
+        }
+
+        // Long
+<span class="fc bfc" id="L354" title="All 2 branches covered.">        if (targetType.equals(Long.class)) {</span>
+<span class="fc" id="L355">            return targetType.cast(Long.valueOf(value.longValue()));</span>
+        }
+
+        // Float
+<span class="fc bfc" id="L359" title="All 2 branches covered.">        if (targetType.equals(Float.class)) {</span>
+<span class="fc bfc" id="L360" title="All 2 branches covered.">            if (value.doubleValue() &gt; Float.MAX_VALUE) {</span>
+<span class="fc" id="L361">                throw new ConversionException(toString(sourceType) + &quot; value '&quot; + value</span>
+<span class="fc" id="L362">                        + &quot;' is too large for &quot; + toString(targetType));</span>
+            }
+<span class="fc" id="L364">            return targetType.cast(Float.valueOf(value.floatValue()));</span>
+        }
+
+        // Double
+<span class="fc bfc" id="L368" title="All 2 branches covered.">        if (targetType.equals(Double.class)) {</span>
+<span class="fc" id="L369">            return targetType.cast(Double.valueOf(value.doubleValue()));</span>
+        }
+
+        // BigDecimal
+<span class="fc bfc" id="L373" title="All 2 branches covered.">        if (targetType.equals(BigDecimal.class)) {</span>
+<span class="fc bfc" id="L374" title="All 4 branches covered.">            if (value instanceof Float || value instanceof Double) {</span>
+<span class="fc" id="L375">                return targetType.cast(new BigDecimal(value.toString()));</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">            } else if (value instanceof BigInteger) {</span>
+<span class="fc" id="L377">                return targetType.cast(new BigDecimal((BigInteger)value));</span>
+<span class="fc bfc" id="L378" title="All 2 branches covered.">            } else if (value instanceof BigDecimal) {</span>
+<span class="fc" id="L379">                return targetType.cast(new BigDecimal(value.toString()));</span>
+            } else {
+<span class="fc" id="L381">                return targetType.cast(BigDecimal.valueOf(value.longValue()));</span>
+            }
+        }
+
+        // BigInteger
+<span class="fc bfc" id="L386" title="All 2 branches covered.">        if (targetType.equals(BigInteger.class)) {</span>
+<span class="fc bfc" id="L387" title="All 2 branches covered.">            if (value instanceof BigDecimal) {</span>
+<span class="fc" id="L388">                return targetType.cast(((BigDecimal)value).toBigInteger());</span>
+            }
+<span class="fc" id="L390">            return targetType.cast(BigInteger.valueOf(value.longValue()));</span>
+        }
+
+<span class="fc" id="L393">        final String msg = toString(getClass()) + &quot; cannot handle conversion to '&quot;</span>
+<span class="fc" id="L394">                   + toString(targetType) + &quot;'&quot;;</span>
+<span class="pc bpc" id="L395" title="1 of 2 branches missed.">        if (log().isWarnEnabled()) {</span>
+<span class="fc" id="L396">            log().warn(&quot;    &quot; + msg);</span>
+        }
+<span class="fc" id="L398">        throw new ConversionException(msg);</span>
+
+    }
+
+    /**
+     * Default String to Number conversion.
+     * &lt;p&gt;
+     * This method handles conversion from a String to the following types:
+     * &lt;ul&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Byte&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Short&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Integer&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Long&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Float&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.lang.Double&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.math.BigDecimal&lt;/code&gt;&lt;/li&gt;
+     *     &lt;li&gt;&lt;code&gt;java.math.BigInteger&lt;/code&gt;&lt;/li&gt;
+     * &lt;/ul&gt;
+     * @param sourceType The type being converted from
+     * @param targetType The Number type to convert to
+     * @param value The String value to convert.
+     *
+     * @return The converted Number value.
+     */
+    private Number toNumber(final Class&lt;?&gt; sourceType, final Class&lt;?&gt; targetType, final String value) {
+
+        // Byte
+<span class="fc bfc" id="L425" title="All 2 branches covered.">        if (targetType.equals(Byte.class)) {</span>
+<span class="fc" id="L426">            return Byte.valueOf(value);</span>
+        }
+
+        // Short
+<span class="fc bfc" id="L430" title="All 2 branches covered.">        if (targetType.equals(Short.class)) {</span>
+<span class="fc" id="L431">            return Short.valueOf(value);</span>
+        }
+
+        // Integer
+<span class="fc bfc" id="L435" title="All 2 branches covered.">        if (targetType.equals(Integer.class)) {</span>
+<span class="fc" id="L436">            return Integer.valueOf(value);</span>
+        }
+
+        // Long
+<span class="fc bfc" id="L440" title="All 2 branches covered.">        if (targetType.equals(Long.class)) {</span>
+<span class="fc" id="L441">            return Long.valueOf(value);</span>
+        }
+
+        // Float
+<span class="fc bfc" id="L445" title="All 2 branches covered.">        if (targetType.equals(Float.class)) {</span>
+<span class="fc" id="L446">            return Float.valueOf(value);</span>
+        }
+
+        // Double
+<span class="fc bfc" id="L450" title="All 2 branches covered.">        if (targetType.equals(Double.class)) {</span>
+<span class="fc" id="L451">            return Double.valueOf(value);</span>
+        }
+
+        // BigDecimal
+<span class="fc bfc" id="L455" title="All 2 branches covered.">        if (targetType.equals(BigDecimal.class)) {</span>
+<span class="fc" id="L456">            return new BigDecimal(value);</span>
+        }
+
+        // BigInteger
+<span class="pc bpc" id="L460" title="1 of 2 branches missed.">        if (targetType.equals(BigInteger.class)) {</span>
+<span class="fc" id="L461">            return new BigInteger(value);</span>
+        }
+
+<span class="nc" id="L464">        final String msg = toString(getClass()) + &quot; cannot handle conversion from '&quot; +</span>
+<span class="nc" id="L465">                     toString(sourceType) + &quot;' to '&quot; + toString(targetType) + &quot;'&quot;;</span>
+<span class="nc bnc" id="L466" title="All 2 branches missed.">        if (log().isWarnEnabled()) {</span>
+<span class="nc" id="L467">            log().warn(&quot;    &quot; + msg);</span>
+        }
+<span class="nc" id="L469">        throw new ConversionException(msg);</span>
+    }
+
+    /**
+     * Provide a String representation of this number converter.
+     *
+     * @return A String representation of this number converter
+     */
+    @Override
+    public String toString() {
+<span class="fc" id="L479">        final StringBuilder buffer = new StringBuilder();</span>
+<span class="fc" id="L480">        buffer.append(toString(getClass()));</span>
+<span class="fc" id="L481">        buffer.append(&quot;[UseDefault=&quot;);</span>
+<span class="fc" id="L482">        buffer.append(isUseDefault());</span>
+<span class="fc" id="L483">        buffer.append(&quot;, UseLocaleFormat=&quot;);</span>
+<span class="fc" id="L484">        buffer.append(useLocaleFormat);</span>
+<span class="pc bpc" id="L485" title="1 of 2 branches missed.">        if (pattern != null) {</span>
+<span class="nc" id="L486">            buffer.append(&quot;, Pattern=&quot;);</span>
+<span class="nc" id="L487">            buffer.append(pattern);</span>
+        }
+<span class="pc bpc" id="L489" title="1 of 2 branches missed.">        if (locale != null) {</span>
+<span class="nc" id="L490">            buffer.append(&quot;, Locale=&quot;);</span>
+<span class="nc" id="L491">            buffer.append(locale);</span>
+        }
+<span class="fc" id="L493">        buffer.append(']');</span>
+<span class="fc" id="L494">        return buffer.toString();</span>
+    }
+
+    /**
+     * Return a NumberFormat to use for Conversion.
+     *
+     * @return The NumberFormat.
+     */
+    private NumberFormat getFormat() {
+<span class="fc" id="L503">        NumberFormat format = null;</span>
+<span class="fc bfc" id="L504" title="All 2 branches covered.">        if (pattern != null) {</span>
+<span class="fc bfc" id="L505" title="All 2 branches covered.">            if (locale == null) {</span>
+<span class="pc bpc" id="L506" title="1 of 2 branches missed.">                if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L507">                    log().debug(&quot;    Using pattern '&quot; + pattern + &quot;'&quot;);</span>
+                }
+<span class="fc" id="L509">                format = new DecimalFormat(pattern);</span>
+            } else {
+<span class="pc bpc" id="L511" title="1 of 2 branches missed.">                if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L512">                    log().debug(&quot;    Using pattern '&quot; + pattern + &quot;'&quot; +</span>
+                              &quot; with Locale[&quot; + locale + &quot;]&quot;);
+                }
+<span class="fc" id="L515">                final DecimalFormatSymbols symbols = new DecimalFormatSymbols(locale);</span>
+<span class="fc" id="L516">                format = new DecimalFormat(pattern, symbols);</span>
+<span class="fc" id="L517">            }</span>
+        } else {
+<span class="fc bfc" id="L519" title="All 2 branches covered.">            if (locale == null) {</span>
+<span class="pc bpc" id="L520" title="1 of 2 branches missed.">                if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L521">                    log().debug(&quot;    Using default Locale format&quot;);</span>
+                }
+<span class="fc" id="L523">                format = NumberFormat.getInstance();</span>
+            } else {
+<span class="pc bpc" id="L525" title="1 of 2 branches missed.">                if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L526">                    log().debug(&quot;    Using Locale[&quot; + locale + &quot;] format&quot;);</span>
+                }
+<span class="fc" id="L528">                format = NumberFormat.getInstance(locale);</span>
+            }
+        }
+<span class="fc bfc" id="L531" title="All 2 branches covered.">        if (!allowDecimals) {</span>
+<span class="fc" id="L532">            format.setParseIntegerOnly(true);</span>
+        }
+<span class="fc" id="L534">        return format;</span>
+    }
+
+    /**
+     * Convert a String into a &lt;code&gt;Number&lt;/code&gt; object.
+     * @param sourceType the source type of the conversion
+     * @param targetType The type to convert the value to
+     * @param value The String date value.
+     * @param format The NumberFormat to parse the String value.
+     *
+     * @return The converted Number object.
+     * @throws ConversionException if the String cannot be converted.
+     */
+    private Number parse(final Class&lt;?&gt; sourceType, final Class&lt;?&gt; targetType, final String value, final NumberFormat format) {
+<span class="fc" id="L548">        final ParsePosition pos = new ParsePosition(0);</span>
+<span class="fc" id="L549">        final Number parsedNumber = format.parse(value, pos);</span>
+<span class="pc bpc" id="L550" title="1 of 6 branches missed.">        if (pos.getErrorIndex() &gt;= 0 || pos.getIndex() != value.length() || parsedNumber == null) {</span>
+<span class="fc" id="L551">            String msg = &quot;Error converting from '&quot; + toString(sourceType) + &quot;' to '&quot; + toString(targetType) + &quot;'&quot;;</span>
+<span class="pc bpc" id="L552" title="1 of 2 branches missed.">            if (format instanceof DecimalFormat) {</span>
+<span class="fc" id="L553">                msg += &quot; using pattern '&quot; + ((DecimalFormat)format).toPattern() + &quot;'&quot;;</span>
+            }
+<span class="fc bfc" id="L555" title="All 2 branches covered.">            if (locale != null) {</span>
+<span class="fc" id="L556">                msg += &quot; for locale=[&quot; + locale + &quot;]&quot;;</span>
+            }
+<span class="pc bpc" id="L558" title="1 of 2 branches missed.">            if (log().isDebugEnabled()) {</span>
+<span class="nc" id="L559">                log().debug(&quot;    &quot; + msg);</span>
+            }
+<span class="fc" id="L561">            throw new ConversionException(msg);</span>
+        }
+<span class="fc" id="L563">        return parsedNumber;</span>
+    }
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

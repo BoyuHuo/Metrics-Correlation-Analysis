@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>LazyDynaList.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">LazyDynaList.java</span></div><h1>LazyDynaList.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.commons.beanutils2;
+
+import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+
+/**
+ * &lt;h1&gt;&lt;i&gt;Lazy&lt;/i&gt; DynaBean List.&lt;/h1&gt;
+ *
+ * &lt;p&gt;There are two main purposes for this class:&lt;/p&gt;
+ *    &lt;ul&gt;
+ *        &lt;li&gt;To provide &lt;i&gt;Lazy List&lt;/i&gt; behaviour - automatically
+ *            &lt;i&gt;growing&lt;/i&gt; and &lt;i&gt;populating&lt;/i&gt; the &lt;code&gt;List&lt;/code&gt;
+ *            with either &lt;code&gt;DynaBean&lt;/code&gt;, &lt;code&gt;java.util.Map&lt;/code&gt;
+ *            or POJO Beans.&lt;/li&gt;
+ *        &lt;li&gt;To provide a straight forward way of putting a Collection
+ *            or Array into the lazy list &lt;i&gt;and&lt;/i&gt; a straight forward
+ *            way to get it out again at the end.&lt;/li&gt;
+ *    &lt;/ul&gt;
+ *
+ * &lt;p&gt;All elements added to the List are stored as &lt;code&gt;DynaBean&lt;/code&gt;'s:&lt;/p&gt;
+ * &lt;ul&gt;
+ *    &lt;li&gt;&lt;code&gt;java.util.Map&lt;/code&gt; elements are &quot;wrapped&quot; in a &lt;code&gt;LazyDynaMap&lt;/code&gt;.&lt;/li&gt;
+ *    &lt;li&gt;POJO Bean elements are &quot;wrapped&quot; in a &lt;code&gt;WrapDynaBean&lt;/code&gt;.&lt;/li&gt;
+ *    &lt;li&gt;&lt;code&gt;DynaBean&lt;/code&gt;'s are stored un-changed.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;h2&gt;&lt;code&gt;toArray()&lt;/code&gt;&lt;/h2&gt;
+ * &lt;p&gt;The &lt;code&gt;toArray()&lt;/code&gt; method returns an array of the
+ *    elements of the appropriate type. If the &lt;code&gt;LazyDynaList&lt;/code&gt;
+ *    is populated with &lt;code&gt;java.util.Map&lt;/code&gt; objects a
+ *    &lt;code&gt;Map[]&lt;/code&gt; array is returned.
+ *    If the list is populated with POJO Beans an appropriate
+ *    array of the POJO Beans is returned. Otherwise a &lt;code&gt;DynaBean[]&lt;/code&gt;
+ *    array is returned.
+ * &lt;/p&gt;
+ *
+ * &lt;h2&gt;&lt;code&gt;toDynaBeanArray()&lt;/code&gt;&lt;/h2&gt;
+ * &lt;p&gt;The &lt;code&gt;toDynaBeanArray()&lt;/code&gt; method returns a
+ *    &lt;code&gt;DynaBean[]&lt;/code&gt; array of the elements in the List.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;N.B.&lt;/strong&gt;All the elements in the List must be the
+ *    same type. If the &lt;code&gt;DynaClass&lt;/code&gt; or &lt;code&gt;Class&lt;/code&gt;
+ *    of the &lt;code&gt;LazyDynaList&lt;/code&gt;'s elements is
+ *    not specified, then it will be automatically set to the type
+ *    of the first element populated.
+ * &lt;/p&gt;
+ *
+ * &lt;h2&gt;Example 1&lt;/h2&gt;
+ * &lt;p&gt;If you have an array of &lt;code&gt;java.util.Map[]&lt;/code&gt; - you can put that into
+ *    a &lt;code&gt;LazyDynaList&lt;/code&gt;.&lt;/p&gt;
+ *
+ * &lt;pre&gt;&lt;code&gt;
+ *    TreeMap[] myArray = .... // your Map[]
+ *    List lazyList = new LazyDynaList(myArray);
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;New elements of the appropriate Map type are
+ *    automatically populated:&lt;/p&gt;
+ *
+ * &lt;pre&gt;&lt;code&gt;
+ *    // get(index) automatically grows the list
+ *    DynaBean newElement = (DynaBean)lazyList.get(lazyList.size());
+ *    newElement.put(&quot;someProperty&quot;, &quot;someValue&quot;);
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;Once you've finished you can get back an Array of the
+ *    elements of the appropriate type:&lt;/p&gt;
+ *
+ * &lt;pre&gt;&lt;code&gt;
+ *    // Retrieve the array from the list
+ *    TreeMap[] myArray = (TreeMap[])lazyList.toArray());
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ *
+ * &lt;h2&gt;Example 2&lt;/h2&gt;
+ * &lt;p&gt;Alternatively you can create an &lt;i&gt;empty&lt;/i&gt; List and
+ *    specify the Class for List's elements. The LazyDynaList
+ *    uses the Class to automatically populate elements:&lt;/p&gt;
+ *
+ * &lt;pre&gt;&lt;code&gt;
+ *    // e.g. For Maps
+ *    List lazyList = new LazyDynaList(TreeMap.class);
+ *
+ *    // e.g. For POJO Beans
+ *    List lazyList = new LazyDynaList(MyPojo.class);
+ *
+ *    // e.g. For DynaBeans
+ *    List lazyList = new LazyDynaList(MyDynaBean.class);
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;h2&gt;Example 3&lt;/h2&gt;
+ * &lt;p&gt;Alternatively you can create an &lt;i&gt;empty&lt;/i&gt; List and specify the
+ *    DynaClass for List's elements. The LazyDynaList uses
+ *    the DynaClass to automatically populate elements:&lt;/p&gt;
+ *
+ * &lt;pre&gt;&lt;code&gt;
+ *    // e.g. For Maps
+ *    DynaClass dynaClass = new LazyDynaMap(new HashMap());
+ *    List lazyList = new LazyDynaList(dynaClass);
+ *
+ *    // e.g. For POJO Beans
+ *    DynaClass dynaClass = (new WrapDynaBean(myPojo)).getDynaClass();
+ *    List lazyList = new LazyDynaList(dynaClass);
+ *
+ *    // e.g. For DynaBeans
+ *    DynaClass dynaClass = new BasicDynaClass(properties);
+ *    List lazyList = new LazyDynaList(dynaClass);
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;N.B.&lt;/strong&gt; You may wonder why control the type
+ *    using a &lt;code&gt;DynaClass&lt;/code&gt; rather than the &lt;code&gt;Class&lt;/code&gt;
+ *    as in the previous example - the reason is that some &lt;code&gt;DynaBean&lt;/code&gt;
+ *    implementations don't have a &lt;i&gt;default&lt;/i&gt; empty constructor and
+ *    therefore need to be instantiated using the &lt;code&gt;DynaClass.newInstance()&lt;/code&gt;
+ *    method.&lt;/p&gt;
+ *
+ * &lt;h2&gt;Example 4&lt;/h2&gt;
+ * &lt;p&gt;A slight variation - set the element type using either
+ *    the &lt;code&gt;setElementType(Class)&lt;/code&gt; method or the
+ *    &lt;code&gt;setElementDynaClass(DynaClass)&lt;/code&gt; method - then populate
+ *    with the normal &lt;code&gt;java.util.List&lt;/code&gt; methods(i.e.
+ *    &lt;code&gt;add()&lt;/code&gt;, &lt;code&gt;addAll()&lt;/code&gt; or &lt;code&gt;set()&lt;/code&gt;).&lt;/p&gt;
+ *
+ * &lt;pre&gt;&lt;code&gt;
+ *    // Create a new LazyDynaList (100 element capacity)
+ *    LazyDynaList lazyList = new LazyDynaList(100);
+ *
+ *    // Either Set the element type...
+ *    lazyList.setElementType(TreeMap.class);
+ *
+ *    // ...or the element DynaClass...
+ *    lazyList.setElementDynaClass(new MyCustomDynaClass());
+ *
+ *    // Populate from a collection
+ *    lazyList.addAll(myCollection);
+ *
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * @version $Id$
+ * @since 1.8.0
+ */
+public class LazyDynaList extends ArrayList&lt;Object&gt; {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * The DynaClass of the List's elements.
+     */
+    private DynaClass elementDynaClass;
+
+    /**
+     * The WrapDynaClass if the List's contains
+     * POJO Bean elements.
+     *
+     * N.B. WrapDynaClass isn't serlializable, which
+     *      is why its stored separately in a
+     *      transient instance variable.
+     */
+    private transient WrapDynaClass wrapDynaClass;
+
+    /**
+     * The type of the List's elements.
+     */
+    private Class&lt;?&gt; elementType;
+
+    /**
+     * The DynaBean type of the List's elements.
+     */
+    private Class&lt;?&gt; elementDynaBeanType;
+
+
+    // ------------------- Constructors ------------------------------
+
+    /**
+     * Default Constructor.
+     */
+    public LazyDynaList() {
+<span class="fc" id="L197">        super();</span>
+<span class="fc" id="L198">    }</span>
+
+    /**
+     * Construct a LazyDynaList with the
+     * specified capacity.
+     *
+     * @param capacity The initial capacity of the list.
+     */
+    public LazyDynaList(final int capacity) {
+<span class="nc" id="L207">        super(capacity);</span>
+
+<span class="nc" id="L209">    }</span>
+
+    /**
+     * Construct a  LazyDynaList with a
+     * specified DynaClass for its elements.
+     *
+     * @param elementDynaClass The DynaClass of the List's elements.
+     */
+    public LazyDynaList(final DynaClass elementDynaClass) {
+<span class="fc" id="L218">        super();</span>
+<span class="fc" id="L219">        setElementDynaClass(elementDynaClass);</span>
+<span class="fc" id="L220">    }</span>
+
+    /**
+     * Construct a  LazyDynaList with a
+     * specified type for its elements.
+     *
+     * @param elementType The Type of the List's elements.
+     */
+    public LazyDynaList(final Class&lt;?&gt; elementType) {
+<span class="fc" id="L229">        super();</span>
+<span class="fc" id="L230">        setElementType(elementType);</span>
+<span class="fc" id="L231">    }</span>
+
+    /**
+     * Construct a  LazyDynaList populated with the
+     * elements of a Collection.
+     *
+     * @param collection The Collection to populate the List from.
+     */
+    public LazyDynaList(final Collection&lt;?&gt; collection) {
+<span class="nc" id="L240">        super(collection.size());</span>
+<span class="nc" id="L241">        addAll(collection);</span>
+<span class="nc" id="L242">    }</span>
+
+    /**
+     * Construct a  LazyDynaList populated with the
+     * elements of an Array.
+     *
+     * @param array The Array to populate the List from.
+     */
+    public LazyDynaList(final Object[] array) {
+<span class="nc" id="L251">        super(array.length);</span>
+<span class="nc bnc" id="L252" title="All 2 branches missed.">        for (final Object element : array) {</span>
+<span class="nc" id="L253">            add(element);</span>
+        }
+<span class="nc" id="L255">    }</span>
+
+
+    // ------------------- java.util.List Methods --------------------
+
+    /**
+     * &lt;p&gt;Insert an element at the specified index position.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the index position is greater than the current
+     *    size of the List, then the List is automatically
+     *    &lt;i&gt;grown&lt;/i&gt; to the appropriate size.&lt;/p&gt;
+     *
+     * @param index The index position to insert the new element.
+     * @param element The new element to add.
+     */
+    @Override
+    public void add(final int index, final Object element) {
+
+<span class="fc" id="L273">        final DynaBean dynaBean = transform(element);</span>
+
+<span class="fc" id="L275">        growList(index);</span>
+
+<span class="fc" id="L277">        super.add(index, dynaBean);</span>
+
+<span class="fc" id="L279">    }</span>
+
+    /**
+     * &lt;p&gt;Add an element to the List.&lt;/p&gt;
+     *
+     * @param element The new element to add.
+     * @return true.
+     */
+    @Override
+    public boolean add(final Object element) {
+
+<span class="fc" id="L290">        final DynaBean dynaBean = transform(element);</span>
+
+<span class="fc" id="L292">        return super.add(dynaBean);</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Add all the elements from a Collection to the list.
+     *
+     * @param collection The Collection of new elements.
+     * @return true if elements were added.
+     */
+    @Override
+    public boolean addAll(final Collection&lt;?&gt; collection) {
+
+<span class="nc bnc" id="L305" title="All 4 branches missed.">        if (collection == null || collection.size() == 0) {</span>
+<span class="nc" id="L306">            return false;</span>
+        }
+
+<span class="nc" id="L309">        ensureCapacity(size() + collection.size());</span>
+
+<span class="nc bnc" id="L311" title="All 2 branches missed.">        for (final Object e : collection) {</span>
+<span class="nc" id="L312">            add(e);</span>
+<span class="nc" id="L313">        }</span>
+
+<span class="nc" id="L315">        return true;</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Insert all the elements from a Collection into the
+     *    list at a specified position.
+     *
+     * &lt;p&gt;If the index position is greater than the current
+     *    size of the List, then the List is automatically
+     *    &lt;i&gt;grown&lt;/i&gt; to the appropriate size.&lt;/p&gt;
+     *
+     * @param collection The Collection of new elements.
+     * @param index The index position to insert the new elements at.
+     * @return true if elements were added.
+     */
+    @Override
+    public boolean addAll(final int index, final Collection&lt;?&gt; collection) {
+
+<span class="pc bpc" id="L334" title="2 of 4 branches missed.">        if (collection == null || collection.size() == 0) {</span>
+<span class="nc" id="L335">            return false;</span>
+        }
+
+<span class="pc bpc" id="L338" title="1 of 2 branches missed.">        ensureCapacity((index &gt; size() ? index : size()) + collection.size());</span>
+
+        // Call &quot;transform&quot; with first element, before
+        // List is &quot;grown&quot; to ensure the correct DynaClass
+        // is set.
+<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        if (size() == 0) {</span>
+<span class="nc" id="L344">            transform(collection.iterator().next());</span>
+        }
+
+<span class="fc" id="L347">        growList(index);</span>
+
+<span class="fc" id="L349">        int currentIndex = index;</span>
+<span class="fc bfc" id="L350" title="All 2 branches covered.">        for (final Object e : collection) {</span>
+<span class="fc" id="L351">            add(currentIndex++, e);</span>
+<span class="fc" id="L352">        }</span>
+
+<span class="fc" id="L354">        return true;</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Return the element at the specified position.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the position requested is greater than the current
+     *    size of the List, then the List is automatically
+     *    &lt;i&gt;grown&lt;/i&gt; (and populated) to the appropriate size.&lt;/p&gt;
+     *
+     * @param index The index position to insert the new elements at.
+     * @return The element at the specified position.
+     */
+    @Override
+    public Object get(final int index) {
+
+<span class="fc" id="L371">        growList(index + 1);</span>
+
+<span class="fc" id="L373">        return super.get(index);</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Set the element at the specified position.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the position requested is greater than the current
+     *    size of the List, then the List is automatically
+     *    &lt;i&gt;grown&lt;/i&gt; (and populated) to the appropriate size.&lt;/p&gt;
+     *
+     * @param index The index position to insert the new element at.
+     * @param element The new element.
+     * @return The new element.
+     */
+    @Override
+    public Object set(final int index, final Object element) {
+
+<span class="nc" id="L391">        final DynaBean dynaBean = transform(element);</span>
+
+<span class="nc" id="L393">        growList(index + 1);</span>
+
+<span class="nc" id="L395">        return super.set(index, dynaBean);</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Converts the List to an Array.&lt;/p&gt;
+     *
+     * &lt;p&gt;The type of Array created depends on the contents
+     *    of the List:&lt;/p&gt;
+     * &lt;ul&gt;
+     *    &lt;li&gt;If the List contains only LazyDynaMap type elements
+     *        then a java.util.Map[] array will be created.&lt;/li&gt;
+     *    &lt;li&gt;If the List contains only elements which are
+     *        &quot;wrapped&quot; DynaBeans then an Object[] of the most
+     *        suitable type will be created.&lt;/li&gt;
+     *    &lt;li&gt;...otherwise a DynaBean[] will be created.&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @return An Array of the elements in this List.
+     */
+    @Override
+    public Object[] toArray() {
+
+<span class="pc bpc" id="L418" title="3 of 4 branches missed.">        if (size() == 0 &amp;&amp; elementType == null) {</span>
+<span class="nc" id="L419">            return new LazyDynaBean[0];</span>
+        }
+
+<span class="fc" id="L422">        final Object[] array = (Object[])Array.newInstance(elementType, size());</span>
+<span class="fc bfc" id="L423" title="All 2 branches covered.">        for (int i = 0; i &lt; size(); i++) {</span>
+<span class="fc bfc" id="L424" title="All 2 branches covered.">            if (Map.class.isAssignableFrom(elementType)) {</span>
+<span class="fc" id="L425">                array[i] = ((LazyDynaMap)get(i)).getMap();</span>
+<span class="fc bfc" id="L426" title="All 2 branches covered.">            } else if (DynaBean.class.isAssignableFrom(elementType)) {</span>
+<span class="fc" id="L427">                array[i] = get(i);</span>
+            } else {
+<span class="fc" id="L429">                array[i] = ((WrapDynaBean)get(i)).getInstance();</span>
+            }
+        }
+<span class="fc" id="L432">        return array;</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Converts the List to an Array of the specified type.&lt;/p&gt;
+     *
+     * @param &lt;T&gt; The type of the array elements
+     * @param model The model for the type of array to return
+     * @return An Array of the elements in this List.
+     */
+    @Override
+    public &lt;T&gt; T[] toArray(final T[] model) {
+
+<span class="fc" id="L446">        final Class&lt;?&gt; arrayType = model.getClass().getComponentType();</span>
+<span class="fc bfc" id="L447" title="All 2 branches covered.">        if (DynaBean.class.isAssignableFrom(arrayType)</span>
+<span class="pc bpc" id="L448" title="3 of 4 branches missed.">                || size() == 0 &amp;&amp; elementType == null) {</span>
+<span class="fc" id="L449">            return super.toArray(model);</span>
+        }
+
+<span class="pc bpc" id="L452" title="1 of 2 branches missed.">        if (arrayType.isAssignableFrom(elementType)) {</span>
+            T[] array;
+<span class="pc bpc" id="L454" title="1 of 2 branches missed.">            if (model.length &gt;= size()) {</span>
+<span class="fc" id="L455">                array = model;</span>
+            } else {
+                @SuppressWarnings(&quot;unchecked&quot;)
+                final
+                // This is safe because we know the element type
+<span class="nc" id="L460">                T[] tempArray = (T[]) Array.newInstance(arrayType, size());</span>
+<span class="nc" id="L461">                array = tempArray;</span>
+            }
+
+<span class="fc bfc" id="L464" title="All 2 branches covered.">            for (int i = 0; i &lt; size(); i++) {</span>
+                Object elem;
+<span class="fc bfc" id="L466" title="All 2 branches covered.">                if (Map.class.isAssignableFrom(elementType)) {</span>
+<span class="fc" id="L467">                    elem = ((LazyDynaMap) get(i)).getMap();</span>
+<span class="pc bpc" id="L468" title="1 of 2 branches missed.">                } else if (DynaBean.class.isAssignableFrom(elementType)) {</span>
+<span class="nc" id="L469">                    elem = get(i);</span>
+                } else {
+<span class="fc" id="L471">                    elem = ((WrapDynaBean) get(i)).getInstance();</span>
+                }
+<span class="fc" id="L473">                Array.set(array, i, elem);</span>
+            }
+<span class="fc" id="L475">            return array;</span>
+        }
+
+<span class="nc" id="L478">        throw new IllegalArgumentException(&quot;Invalid array type: &quot;</span>
+<span class="nc" id="L479">                  + arrayType.getName() + &quot; - not compatible with '&quot;</span>
+<span class="nc" id="L480">                  + elementType.getName());</span>
+
+    }
+
+
+    // ------------------- Public Methods ----------------------------
+
+    /**
+     * &lt;p&gt;Converts the List to an DynaBean Array.&lt;/p&gt;
+     *
+     * @return A DynaBean[] of the elements in this List.
+     */
+    public DynaBean[] toDynaBeanArray() {
+
+<span class="pc bpc" id="L494" title="3 of 4 branches missed.">        if (size() == 0 &amp;&amp; elementDynaBeanType == null) {</span>
+<span class="nc" id="L495">            return new LazyDynaBean[0];</span>
+        }
+
+<span class="fc" id="L498">        final DynaBean[] array = (DynaBean[])Array.newInstance(elementDynaBeanType, size());</span>
+<span class="fc bfc" id="L499" title="All 2 branches covered.">        for (int i = 0; i &lt; size(); i++) {</span>
+<span class="fc" id="L500">            array[i] = (DynaBean)get(i);</span>
+        }
+<span class="fc" id="L502">        return array;</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Set the element Type and DynaClass.&lt;/p&gt;
+     *
+     * @param elementType The type of the elements.
+     * @throws IllegalArgumentException if the List already
+     *            contains elements or the DynaClass is null.
+     */
+    public void setElementType(final Class&lt;?&gt; elementType) {
+
+<span class="pc bpc" id="L515" title="1 of 2 branches missed.">        if (elementType == null) {</span>
+<span class="nc" id="L516">            throw new IllegalArgumentException(&quot;Element Type is missing&quot;);</span>
+        }
+
+<span class="pc bpc" id="L519" title="1 of 4 branches missed.">        final boolean changeType = this.elementType != null &amp;&amp; !this.elementType.equals(elementType);</span>
+<span class="pc bpc" id="L520" title="3 of 4 branches missed.">        if (changeType &amp;&amp; size() &gt; 0) {</span>
+<span class="nc" id="L521">            throw new IllegalStateException(&quot;Element Type cannot be reset&quot;);</span>
+        }
+
+<span class="fc" id="L524">        this.elementType = elementType;</span>
+
+        // Create a new object of the specified type
+<span class="fc" id="L527">        Object object = null;</span>
+        try {
+<span class="fc" id="L529">            object = elementType.newInstance();</span>
+<span class="nc" id="L530">        } catch (final Exception e) {</span>
+<span class="nc" id="L531">            throw new IllegalArgumentException(&quot;Error creating type: &quot;</span>
+<span class="nc" id="L532">                           + elementType.getName() + &quot; - &quot; + e);</span>
+<span class="fc" id="L533">        }</span>
+
+        // Create a DynaBean
+<span class="fc" id="L536">        DynaBean dynaBean = null;</span>
+<span class="fc bfc" id="L537" title="All 2 branches covered.">        if (Map.class.isAssignableFrom(elementType)) {</span>
+<span class="fc" id="L538">            dynaBean = createDynaBeanForMapProperty(object);</span>
+<span class="fc" id="L539">            this.elementDynaClass = dynaBean.getDynaClass();</span>
+<span class="fc bfc" id="L540" title="All 2 branches covered.">        } else if (DynaBean.class.isAssignableFrom(elementType)) {</span>
+<span class="fc" id="L541">            dynaBean = (DynaBean)object;</span>
+<span class="fc" id="L542">            this.elementDynaClass = dynaBean.getDynaClass();</span>
+        } else {
+<span class="fc" id="L544">            dynaBean = new WrapDynaBean(object);</span>
+<span class="fc" id="L545">            this.wrapDynaClass = (WrapDynaClass)dynaBean.getDynaClass();</span>
+        }
+
+<span class="fc" id="L548">        this.elementDynaBeanType = dynaBean.getClass();</span>
+
+        // Re-calculate the type
+<span class="fc bfc" id="L551" title="All 2 branches covered.">        if (WrapDynaBean.class.isAssignableFrom(elementDynaBeanType )) {</span>
+<span class="fc" id="L552">            this.elementType = ((WrapDynaBean)dynaBean).getInstance().getClass();</span>
+<span class="fc bfc" id="L553" title="All 2 branches covered.">        } else if (LazyDynaMap.class.isAssignableFrom(elementDynaBeanType )) {</span>
+<span class="fc" id="L554">            this.elementType = ((LazyDynaMap)dynaBean).getMap().getClass();</span>
+        }
+
+<span class="fc" id="L557">    }</span>
+
+    /**
+     * &lt;p&gt;Set the element Type and DynaClass.&lt;/p&gt;
+     *
+     * @param elementDynaClass The DynaClass of the elements.
+     * @throws IllegalArgumentException if the List already
+     *            contains elements or the DynaClass is null.
+     */
+    public void setElementDynaClass(final DynaClass elementDynaClass) {
+
+<span class="pc bpc" id="L568" title="1 of 2 branches missed.">        if (elementDynaClass == null) {</span>
+<span class="nc" id="L569">            throw new IllegalArgumentException(&quot;Element DynaClass is missing&quot;);</span>
+        }
+
+<span class="pc bpc" id="L572" title="1 of 2 branches missed.">        if (size() &gt; 0) {</span>
+<span class="nc" id="L573">            throw new IllegalStateException(&quot;Element DynaClass cannot be reset&quot;);</span>
+        }
+
+        // Try to create a new instance of the DynaBean
+        try {
+<span class="fc" id="L578">            final DynaBean dynaBean  = elementDynaClass.newInstance();</span>
+<span class="fc" id="L579">            this.elementDynaBeanType = dynaBean.getClass();</span>
+<span class="fc bfc" id="L580" title="All 2 branches covered.">            if (WrapDynaBean.class.isAssignableFrom(elementDynaBeanType)) {</span>
+<span class="fc" id="L581">                this.elementType = ((WrapDynaBean)dynaBean).getInstance().getClass();</span>
+<span class="fc" id="L582">                this.wrapDynaClass = (WrapDynaClass)elementDynaClass;</span>
+<span class="fc bfc" id="L583" title="All 2 branches covered.">            } else if (LazyDynaMap.class.isAssignableFrom(elementDynaBeanType)) {</span>
+<span class="fc" id="L584">                this.elementType = ((LazyDynaMap)dynaBean).getMap().getClass();</span>
+<span class="fc" id="L585">                this.elementDynaClass = elementDynaClass;</span>
+            } else {
+<span class="fc" id="L587">                this.elementType = dynaBean.getClass();</span>
+<span class="fc" id="L588">                this.elementDynaClass = elementDynaClass;</span>
+            }
+<span class="nc" id="L590">        } catch (final Exception e) {</span>
+<span class="nc" id="L591">            throw new IllegalArgumentException(</span>
+                        &quot;Error creating DynaBean from &quot; +
+<span class="nc" id="L593">                        elementDynaClass.getClass().getName() + &quot; - &quot; + e);</span>
+<span class="fc" id="L594">        }</span>
+
+<span class="fc" id="L596">    }</span>
+
+
+    // ------------------- Private Methods ---------------------------
+
+    /**
+     * &lt;p&gt;Automatically &lt;i&gt;grown&lt;/i&gt; the List
+     *    to the appropriate size, populating with
+     *    DynaBeans.&lt;/p&gt;
+     *
+     * @param requiredSize the required size of the List.
+     */
+    private void growList(final int requiredSize) {
+
+<span class="fc bfc" id="L610" title="All 2 branches covered.">        if (requiredSize &lt; size()) {</span>
+<span class="fc" id="L611">            return;</span>
+        }
+
+<span class="fc" id="L614">        ensureCapacity(requiredSize + 1);</span>
+
+<span class="fc bfc" id="L616" title="All 2 branches covered.">        for (int i = size(); i &lt; requiredSize; i++) {</span>
+<span class="fc" id="L617">            final DynaBean dynaBean = transform(null);</span>
+<span class="fc" id="L618">            super.add(dynaBean);</span>
+        }
+
+<span class="fc" id="L621">    }</span>
+
+    /**
+     * &lt;p&gt;Transform the element into a DynaBean:&lt;/p&gt;
+     *
+     * &lt;ul&gt;
+     *    &lt;li&gt;Map elements are turned into LazyDynaMap's.&lt;/li&gt;
+     *    &lt;li&gt;POJO Beans are &quot;wrapped&quot; in a WrapDynaBean.&lt;/li&gt;
+     *    &lt;li&gt;DynaBeans are unchanged.&lt;/li&gt;
+     * &lt;/li&gt;
+     *
+     * @param element The element to transformed.
+     * @param The DynaBean to store in the List.
+     */
+    private DynaBean transform(final Object element) {
+
+<span class="fc" id="L637">        DynaBean dynaBean     = null;</span>
+<span class="fc" id="L638">        Class&lt;?&gt; newDynaBeanType = null;</span>
+<span class="fc" id="L639">        Class&lt;?&gt; newElementType  = null;</span>
+
+        // Create a new element
+<span class="fc bfc" id="L642" title="All 2 branches covered.">        if (element == null) {</span>
+
+            // Default Types to LazyDynaBean
+            // if not specified
+<span class="fc bfc" id="L646" title="All 2 branches covered.">            if (elementType == null) {</span>
+<span class="fc" id="L647">                setElementDynaClass(new LazyDynaClass());</span>
+            }
+
+            // Get DynaClass (restore WrapDynaClass lost in serialization)
+<span class="fc bfc" id="L651" title="All 2 branches covered.">            if (getDynaClass() == null) {</span>
+<span class="fc" id="L652">                setElementType(elementType);</span>
+            }
+
+            // Create a new DynaBean
+            try {
+<span class="fc" id="L657">                dynaBean = getDynaClass().newInstance();</span>
+<span class="fc" id="L658">                newDynaBeanType = dynaBean.getClass();</span>
+<span class="nc" id="L659">            } catch (final Exception e) {</span>
+<span class="nc" id="L660">                throw new IllegalArgumentException(&quot;Error creating DynaBean: &quot;</span>
+<span class="nc" id="L661">                              + getDynaClass().getClass().getName()</span>
+                              + &quot; - &quot; + e);
+<span class="fc" id="L663">            }</span>
+
+        } else {
+
+            // Transform Object to a DynaBean
+<span class="fc" id="L668">            newElementType = element.getClass();</span>
+<span class="fc bfc" id="L669" title="All 2 branches covered.">            if (Map.class.isAssignableFrom(element.getClass())) {</span>
+<span class="fc" id="L670">                dynaBean = createDynaBeanForMapProperty(element);</span>
+<span class="fc bfc" id="L671" title="All 2 branches covered.">            } else if (DynaBean.class.isAssignableFrom(element.getClass())) {</span>
+<span class="fc" id="L672">                dynaBean = (DynaBean)element;</span>
+            } else {
+<span class="fc" id="L674">                dynaBean = new WrapDynaBean(element);</span>
+            }
+
+<span class="fc" id="L677">            newDynaBeanType = dynaBean.getClass();</span>
+
+        }
+
+        // Re-calculate the element type
+<span class="fc" id="L682">        newElementType = dynaBean.getClass();</span>
+<span class="fc bfc" id="L683" title="All 2 branches covered.">        if (WrapDynaBean.class.isAssignableFrom(newDynaBeanType)) {</span>
+<span class="fc" id="L684">            newElementType = ((WrapDynaBean)dynaBean).getInstance().getClass();</span>
+<span class="fc bfc" id="L685" title="All 2 branches covered.">        } else if (LazyDynaMap.class.isAssignableFrom(newDynaBeanType)) {</span>
+<span class="fc" id="L686">            newElementType = ((LazyDynaMap)dynaBean).getMap().getClass();</span>
+        }
+
+        // Check the new element type, matches all the
+        // other elements in the List
+<span class="fc bfc" id="L691" title="All 4 branches covered.">        if (elementType != null &amp;&amp; !newElementType.equals(elementType)) {</span>
+<span class="fc" id="L692">            throw new IllegalArgumentException(&quot;Element Type &quot;  + newElementType</span>
+                       + &quot; doesn't match other elements &quot; + elementType);
+        }
+
+<span class="fc" id="L696">        return dynaBean;</span>
+
+    }
+
+    /**
+     * Creates a new {@code LazyDynaMap} object for the given property value.
+     *
+     * @param value the property value
+     * @return the newly created {@code LazyDynaMap}
+     */
+    private LazyDynaMap createDynaBeanForMapProperty(final Object value) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+        final
+        // map properties are always stored as Map&lt;String, Object&gt;
+<span class="fc" id="L710">        Map&lt;String, Object&gt; valueMap = (Map&lt;String, Object&gt;) value;</span>
+<span class="fc" id="L711">        return new LazyDynaMap(valueMap);</span>
+    }
+
+    /**
+     * Return the DynaClass.
+     */
+    private DynaClass getDynaClass() {
+<span class="fc bfc" id="L718" title="All 2 branches covered.">        return elementDynaClass == null ? wrapDynaClass : elementDynaClass;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

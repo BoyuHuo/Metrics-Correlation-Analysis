@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BeanToPropertyValueTransformer.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">BeanToPropertyValueTransformer.java</span></div><h1>BeanToPropertyValueTransformer.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2;
+
+import java.lang.reflect.InvocationTargetException;
+
+import org.apache.commons.collections4.Transformer;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+
+/**
+ * &lt;p&gt;&lt;code&gt;Transformer&lt;/code&gt; that outputs a property value.&lt;/p&gt;
+ *
+ * &lt;p&gt;An implementation of &lt;code&gt;org.apache.commons.collections4.Transformer&lt;/code&gt; that transforms
+ * the object provided by returning the value of a specified property of the object.  The
+ * constructor for &lt;code&gt;BeanToPropertyValueTransformer&lt;/code&gt; requires the name of the property
+ * that will be used in the transformation.  The property can be a simple, nested, indexed, or
+ * mapped property as defined by &lt;code&gt;org.apache.commons.beanutils2.PropertyUtils&lt;/code&gt;. If any
+ * object in the property path specified by &lt;code&gt;propertyName&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt; then the
+ * outcome is based on the value of the &lt;code&gt;ignoreNull&lt;/code&gt; attribute.
+ * &lt;/p&gt;
+ *
+ * &lt;p&gt;
+ * A typical usage might look like:
+ * &lt;/p&gt;
+ * &lt;pre&gt;&lt;code&gt;
+ * // create the transformer
+ * BeanToPropertyValueTransformer transformer = new BeanToPropertyValueTransformer( &quot;person.address.city&quot; );
+ *
+ * // transform the Collection
+ * Collection peoplesCities = CollectionUtils.collect( peopleCollection, transformer );
+ * &lt;/code&gt;&lt;/pre&gt;
+ *
+ * &lt;p&gt;
+ * This would take a &lt;code&gt;Collection&lt;/code&gt; of person objects and return a &lt;code&gt;Collection&lt;/code&gt;
+ * of objects which represents the cities in which each person lived. Assuming...
+ * &lt;ul&gt;
+ *    &lt;li&gt;
+ *       The top level object in the &lt;code&gt;peeopleCollection&lt;/code&gt; is an object which represents a
+ *       person.
+ *    &lt;/li&gt;
+ *    &lt;li&gt;
+ *       The person object has a &lt;code&gt;getAddress()&lt;/code&gt; method which returns an object which
+ *       represents a person's address.
+ *    &lt;/li&gt;
+ *    &lt;li&gt;
+ *       The address object has a &lt;code&gt;getCity()&lt;/code&gt; method which returns an object which
+ *       represents the city in which a person lives.
+ *    &lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @version $Id$
+ * @see org.apache.commons.beanutils2.PropertyUtils
+ * @see org.apache.commons.collections4.Transformer
+ */
+public class BeanToPropertyValueTransformer implements Transformer {
+
+    /** For logging. */
+<span class="fc" id="L75">    private final Log log = LogFactory.getLog(this.getClass());</span>
+
+    /** The name of the property that will be used in the transformation of the object. */
+    private String propertyName;
+
+    /**
+     * &lt;p&gt;Should null objects on the property path throw an &lt;code&gt;IllegalArgumentException&lt;/code&gt;?&lt;/p&gt;
+     * &lt;p&gt;
+     * Determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will genenerate an
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not. If set to &lt;code&gt;true&lt;/code&gt; then if any objects
+     * in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged but
+     * not rethrown and &lt;code&gt;null&lt;/code&gt; will be returned.  If set to &lt;code&gt;false&lt;/code&gt; then if any
+     * objects in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged and
+     * rethrown.
+     * &lt;/p&gt;
+     */
+    private boolean ignoreNull;
+
+    /**
+     * Constructs a Transformer which does not ignore nulls.
+     * Constructor which takes the name of the property that will be used in the transformation and
+     * assumes &lt;code&gt;ignoreNull&lt;/code&gt; to be &lt;code&gt;false&lt;/code&gt;.
+     *
+     * @param propertyName The name of the property that will be used in the transformation.
+     * @throws IllegalArgumentException If the &lt;code&gt;propertyName&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt; or
+     * empty.
+     */
+    public BeanToPropertyValueTransformer(final String propertyName) {
+<span class="fc" id="L105">        this(propertyName, false);</span>
+<span class="fc" id="L106">    }</span>
+
+    /**
+     * Constructs a Transformer and sets ignoreNull.
+     * Constructor which takes the name of the property that will be used in the transformation and
+     * a boolean which determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not.
+     *
+     * @param propertyName The name of the property that will be used in the transformation.
+     * @param ignoreNull Determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not.
+     * @throws IllegalArgumentException If the &lt;code&gt;propertyName&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt; or
+     * empty.
+     */
+    public BeanToPropertyValueTransformer(final String propertyName, final boolean ignoreNull) {
+<span class="fc" id="L121">        super();</span>
+
+<span class="pc bpc" id="L123" title="2 of 4 branches missed.">        if (propertyName != null &amp;&amp; propertyName.length() &gt; 0) {</span>
+<span class="fc" id="L124">            this.propertyName = propertyName;</span>
+<span class="fc" id="L125">            this.ignoreNull = ignoreNull;</span>
+        } else {
+<span class="nc" id="L127">            throw new IllegalArgumentException(</span>
+                &quot;propertyName cannot be null or empty&quot;);
+        }
+<span class="fc" id="L130">    }</span>
+
+    /**
+     * Returns the value of the property named in the transformer's constructor for
+     * the object provided. If any object in the property path leading up to the target property is
+     * &lt;code&gt;null&lt;/code&gt; then the outcome will be based on the value of the &lt;code&gt;ignoreNull&lt;/code&gt;
+     * attribute. By default, &lt;code&gt;ignoreNull&lt;/code&gt; is &lt;code&gt;false&lt;/code&gt; and would result in an
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; if an object in the property path leading up to the
+     * target property is &lt;code&gt;null&lt;/code&gt;.
+     *
+     * @param object The object to be transformed.
+     * @return The value of the property named in the transformer's constructor for the object
+     * provided.
+     * @throws IllegalArgumentException If an IllegalAccessException, InvocationTargetException, or
+     * NoSuchMethodException is thrown when trying to access the property specified on the object
+     * provided. Or if an object in the property path provided is &lt;code&gt;null&lt;/code&gt; and
+     * &lt;code&gt;ignoreNull&lt;/code&gt; is set to &lt;code&gt;false&lt;/code&gt;.
+     */
+    @Override
+    public Object transform(final Object object) {
+
+<span class="fc" id="L151">        Object propertyValue = null;</span>
+
+        try {
+<span class="fc" id="L154">            propertyValue = PropertyUtils.getProperty(object, propertyName);</span>
+<span class="fc" id="L155">        } catch (final IllegalArgumentException e) {</span>
+<span class="fc" id="L156">            final String errorMsg = &quot;Problem during transformation. Null value encountered in property path...&quot;;</span>
+
+<span class="fc bfc" id="L158" title="All 2 branches covered.">            if (ignoreNull) {</span>
+<span class="fc" id="L159">                log.warn(&quot;WARNING: &quot; + errorMsg + e);</span>
+            } else {
+<span class="fc" id="L161">                final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="pc bpc" id="L162" title="1 of 2 branches missed.">                if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L163">                    log.error(errorMsg, e);</span>
+                }
+<span class="fc" id="L165">                throw iae;</span>
+            }
+<span class="nc" id="L167">        } catch (final IllegalAccessException e) {</span>
+<span class="nc" id="L168">            final String errorMsg = &quot;Unable to access the property provided.&quot;;</span>
+<span class="nc" id="L169">            final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="nc bnc" id="L170" title="All 2 branches missed.">            if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L171">                log.error(errorMsg, e);</span>
+            }
+<span class="nc" id="L173">            throw iae;</span>
+<span class="nc" id="L174">        } catch (final InvocationTargetException e) {</span>
+<span class="nc" id="L175">            final String errorMsg = &quot;Exception occurred in property's getter&quot;;</span>
+<span class="nc" id="L176">            final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="nc bnc" id="L177" title="All 2 branches missed.">            if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L178">                log.error(errorMsg, e);</span>
+            }
+<span class="nc" id="L180">            throw iae;</span>
+<span class="fc" id="L181">        } catch (final NoSuchMethodException e) {</span>
+<span class="fc" id="L182">            final String errorMsg = &quot;No property found for name [&quot; +</span>
+                propertyName + &quot;]&quot;;
+<span class="fc" id="L184">            final IllegalArgumentException iae = new IllegalArgumentException(errorMsg);</span>
+<span class="pc bpc" id="L185" title="1 of 2 branches missed.">            if (!BeanUtils.initCause(iae, e)) {</span>
+<span class="nc" id="L186">                log.error(errorMsg, e);</span>
+            }
+<span class="fc" id="L188">            throw iae;</span>
+<span class="fc" id="L189">        }</span>
+
+<span class="fc" id="L191">        return propertyValue;</span>
+    }
+
+    /**
+     * Returns the name of the property that will be used in the transformation of the bean.
+     *
+     * @return The name of the property that will be used in the transformation of the bean.
+     */
+    public String getPropertyName() {
+<span class="nc" id="L200">        return propertyName;</span>
+    }
+
+    /**
+     * Returns the flag which determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not. If set to &lt;code&gt;true&lt;/code&gt; then
+     * if any objects in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged but
+     * not rethrown and &lt;code&gt;null&lt;/code&gt; will be returned.  If set to &lt;code&gt;false&lt;/code&gt; then if any
+     * objects in the property path evaluate to &lt;code&gt;null&lt;/code&gt; then the
+     * &lt;code&gt;IllegalArgumentException&lt;/code&gt; throw by &lt;code&gt;PropertyUtils&lt;/code&gt; will be logged and
+     * rethrown.
+     *
+     * @return The flag which determines whether &lt;code&gt;null&lt;/code&gt; objects in the property path will
+     * genenerate an &lt;code&gt;IllegalArgumentException&lt;/code&gt; or not.
+     */
+    public boolean isIgnoreNull() {
+<span class="nc" id="L217">        return ignoreNull;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

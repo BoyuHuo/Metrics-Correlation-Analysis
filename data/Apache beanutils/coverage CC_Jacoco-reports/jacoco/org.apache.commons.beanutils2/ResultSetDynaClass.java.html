@@ -1,0 +1,250 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ResultSetDynaClass.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">ResultSetDynaClass.java</span></div><h1>ResultSetDynaClass.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+package org.apache.commons.beanutils2;
+
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Iterator;
+
+
+/**
+ * &lt;p&gt;Implementation of &lt;code&gt;DynaClass&lt;/code&gt; for DynaBeans that wrap the
+ * &lt;code&gt;java.sql.Row&lt;/code&gt; objects of a &lt;code&gt;java.sql.ResultSet&lt;/code&gt;.
+ * The normal usage pattern is something like:&lt;/p&gt;
+ * &lt;pre&gt;
+ *   ResultSet rs = ...;
+ *   ResultSetDynaClass rsdc = new ResultSetDynaClass(rs);
+ *   Iterator rows = rsdc.iterator();
+ *   while (rows.hasNext())  {
+ *     DynaBean row = (DynaBean) rows.next();
+ *     ... process this row ...
+ *   }
+ *   rs.close();
+ * &lt;/pre&gt;
+ *
+ * &lt;p&gt;Each column in the result set will be represented as a DynaBean
+ * property of the corresponding name (optionally forced to lower case
+ * for portability).&lt;/p&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt; - Any {@link DynaBean} instance returned by
+ * this class, or from the &lt;code&gt;Iterator&lt;/code&gt; returned by the
+ * &lt;code&gt;iterator()&lt;/code&gt; method, is directly linked to the row that the
+ * underlying result set is currently positioned at.  This has the following
+ * implications:&lt;/p&gt;
+ * &lt;ul&gt;
+ * &lt;li&gt;Once you retrieve a different {@link DynaBean} instance, you should
+ *     no longer use any previous instance.&lt;/li&gt;
+ * &lt;li&gt;Changing the position of the underlying result set will change the
+ *     data that the {@link DynaBean} references.&lt;/li&gt;
+ * &lt;li&gt;Once the underlying result set is closed, the {@link DynaBean}
+ *     instance may no longer be used.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * &lt;p&gt;Any database data that you wish to utilize outside the context of the
+ * current row of an open result set must be copied.  For example, you could
+ * use the following code to create standalone copies of the information in
+ * a result set:&lt;/p&gt;
+ * &lt;pre&gt;
+ *   List results = new ArrayList(); // To hold copied list
+ *   ResultSetDynaClass rsdc = ...;
+ *   DynaProperty[] properties = rsdc.getDynaProperties();
+ *   BasicDynaClass bdc =
+ *     new BasicDynaClass(&quot;foo&quot;, BasicDynaBean.class,
+ *                        rsdc.getDynaProperties());
+ *   Iterator rows = rsdc.iterator();
+ *   while (rows.hasNext()) {
+ *     DynaBean oldRow = (DynaBean) rows.next();
+ *     DynaBean newRow = bdc.newInstance();
+ *     PropertyUtils.copyProperties(newRow, oldRow);
+ *     results.add(newRow);
+ *   }
+ * &lt;/pre&gt;
+ *
+ * @version $Id$
+ */
+
+public class ResultSetDynaClass extends JDBCDynaClass {
+
+    private static final long serialVersionUID = 1L;
+
+    // ----------------------------------------------------------- Constructors
+
+    /**
+     * &lt;p&gt;Construct a new ResultSetDynaClass for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to column names in the result set will be lower cased.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     */
+    public ResultSetDynaClass(final ResultSet resultSet) throws SQLException {
+
+<span class="fc" id="L103">        this(resultSet, true);</span>
+
+<span class="fc" id="L105">    }</span>
+
+
+    /**
+     * &lt;p&gt;Construct a new ResultSetDynaClass for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to the column names in the result set will be lower cased or not,
+     * depending on the specified &lt;code&gt;lowerCase&lt;/code&gt; value.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt; - If you specify &lt;code&gt;false&lt;/code&gt;
+     * for &lt;code&gt;lowerCase&lt;/code&gt;, the returned property names will
+     * exactly match the column names returned by your JDBC driver.
+     * Because different drivers might return column names in different
+     * cases, the property names seen by your application will vary
+     * depending on which JDBC driver you are using.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     * @param lowerCase Should property names be lower cased?
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     */
+    public ResultSetDynaClass(final ResultSet resultSet, final boolean lowerCase)
+        throws SQLException {
+
+<span class="fc" id="L132">        this(resultSet, lowerCase, false);</span>
+
+<span class="fc" id="L134">    }</span>
+
+
+    /**
+     * &lt;p&gt;Construct a new ResultSetDynaClass for the specified
+     * &lt;code&gt;ResultSet&lt;/code&gt;.  The property names corresponding
+     * to the column names in the result set will be lower cased or not,
+     * depending on the specified &lt;code&gt;lowerCase&lt;/code&gt; value.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;WARNING&lt;/strong&gt; - If you specify &lt;code&gt;false&lt;/code&gt;
+     * for &lt;code&gt;lowerCase&lt;/code&gt;, the returned property names will
+     * exactly match the column names returned by your JDBC driver.
+     * Because different drivers might return column names in different
+     * cases, the property names seen by your application will vary
+     * depending on which JDBC driver you are using.&lt;/p&gt;
+     *
+     * @param resultSet The result set to be wrapped
+     * @param lowerCase Should property names be lower cased?
+     * @param useColumnLabel true if the column label should be used, otherwise false
+     *
+     * @throws NullPointerException if &lt;code&gt;resultSet&lt;/code&gt;
+     *  is &lt;code&gt;null&lt;/code&gt;
+     * @throws SQLException if the metadata for this result set
+     *  cannot be introspected
+     * @since 1.8.3
+     */
+    public ResultSetDynaClass(final ResultSet resultSet, final boolean lowerCase, final boolean useColumnLabel)
+<span class="fc" id="L161">        throws SQLException {</span>
+
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        if (resultSet == null) {</span>
+<span class="nc" id="L164">            throw new NullPointerException();</span>
+        }
+<span class="fc" id="L166">        this.resultSet = resultSet;</span>
+<span class="fc" id="L167">        this.lowerCase = lowerCase;</span>
+<span class="fc" id="L168">        setUseColumnLabel(useColumnLabel);</span>
+<span class="fc" id="L169">        introspect(resultSet);</span>
+
+<span class="fc" id="L171">    }</span>
+
+
+    // ----------------------------------------------------- Instance Variables
+
+
+    /**
+     * &lt;p&gt;The &lt;code&gt;ResultSet&lt;/code&gt; we are wrapping.&lt;/p&gt;
+     */
+<span class="fc" id="L180">    protected ResultSet resultSet = null;</span>
+
+
+    // --------------------------------------------------------- Public Methods
+
+
+    /**
+     * &lt;p&gt;Return an &lt;code&gt;Iterator&lt;/code&gt; of {@link DynaBean} instances for
+     * each row of the wrapped &lt;code&gt;ResultSet&lt;/code&gt;, in &quot;forward&quot; order.
+     * Unless the underlying result set supports scrolling, this method
+     * should be called only once.&lt;/p&gt;
+     * @return An &lt;code&gt;Iterator&lt;/code&gt; of {@link DynaBean} instances
+     */
+    public Iterator&lt;DynaBean&gt; iterator() {
+
+<span class="fc" id="L195">        return new ResultSetIterator(this);</span>
+
+    }
+
+
+    /**
+     * Get a value from the {@link ResultSet} for the specified
+     * property name.
+     *
+     * @param name The property name
+     * @return The value
+     * @throws SQLException if an error occurs
+     * @since 1.8.0
+     */
+    public Object getObjectFromResultSet(final String name) throws SQLException {
+<span class="fc" id="L210">        return getObject(getResultSet(), name);</span>
+    }
+
+    // -------------------------------------------------------- Package Methods
+
+
+    /**
+     * &lt;p&gt;Return the result set we are wrapping.&lt;/p&gt;
+     */
+    ResultSet getResultSet() {
+
+<span class="fc" id="L221">        return this.resultSet;</span>
+
+    }
+
+
+    // ------------------------------------------------------ Protected Methods
+
+    /**
+     * &lt;p&gt;Loads the class of the given name which by default uses the class loader used
+     * to load this library.
+     * Dervations of this class could implement alternative class loading policies such as
+     * using custom ClassLoader or using the Threads's context class loader etc.
+     * &lt;/p&gt;
+     * @param className The name of the class to load
+     * @return The loaded class
+     * @throws SQLException if the class cannot be loaded
+     */
+    @Override
+    protected Class&lt;?&gt; loadClass(final String className) throws SQLException {
+
+        try {
+<span class="fc" id="L242">            return getClass().getClassLoader().loadClass(className);</span>
+        }
+<span class="nc" id="L244">        catch (final Exception e) {</span>
+<span class="nc" id="L245">            throw new SQLException(&quot;Cannot load column class '&quot; +</span>
+                                   className + &quot;': &quot; + e);
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

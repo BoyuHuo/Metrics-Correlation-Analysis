@@ -1,0 +1,2268 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>PropertyUtilsBean.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">PropertyUtilsBean.java</span></div><h1>PropertyUtilsBean.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.commons.beanutils2;
+
+
+import java.beans.IndexedPropertyDescriptor;
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
+import java.lang.reflect.Array;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+
+import org.apache.commons.beanutils2.expression.DefaultResolver;
+import org.apache.commons.beanutils2.expression.Resolver;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+
+
+/**
+ * Utility methods for using Java Reflection APIs to facilitate generic
+ * property getter and setter operations on Java objects.  Much of this
+ * code was originally included in &lt;code&gt;BeanUtils&lt;/code&gt;, but has been
+ * separated because of the volume of code involved.
+ * &lt;p&gt;
+ * In general, the objects that are examined and modified using these
+ * methods are expected to conform to the property getter and setter method
+ * naming conventions described in the JavaBeans Specification (Version 1.0.1).
+ * No data type conversions are performed, and there are no usage of any
+ * &lt;code&gt;PropertyEditor&lt;/code&gt; classes that have been registered, although
+ * a convenient way to access the registered classes themselves is included.
+ * &lt;p&gt;
+ * For the purposes of this class, five formats for referencing a particular
+ * property value of a bean are defined, with the &lt;i&gt;default&lt;/i&gt; layout of an
+ * identifying String in parentheses. However the notation for these formats
+ * and how they are resolved is now (since BeanUtils 1.8.0) controlled by
+ * the configured {@link Resolver} implementation:
+ * &lt;ul&gt;
+ * &lt;li&gt;&lt;strong&gt;Simple (&lt;code&gt;name&lt;/code&gt;)&lt;/strong&gt; - The specified
+ *     &lt;code&gt;name&lt;/code&gt; identifies an individual property of a particular
+ *     JavaBean.  The name of the actual getter or setter method to be used
+ *     is determined using standard JavaBeans instrospection, so that (unless
+ *     overridden by a &lt;code&gt;BeanInfo&lt;/code&gt; class, a property named &quot;xyz&quot;
+ *     will have a getter method named &lt;code&gt;getXyz()&lt;/code&gt; or (for boolean
+ *     properties only) &lt;code&gt;isXyz()&lt;/code&gt;, and a setter method named
+ *     &lt;code&gt;setXyz()&lt;/code&gt;.&lt;/li&gt;
+ * &lt;li&gt;&lt;strong&gt;Nested (&lt;code&gt;name1.name2.name3&lt;/code&gt;)&lt;/strong&gt; The first
+ *     name element is used to select a property getter, as for simple
+ *     references above.  The object returned for this property is then
+ *     consulted, using the same approach, for a property getter for a
+ *     property named &lt;code&gt;name2&lt;/code&gt;, and so on.  The property value that
+ *     is ultimately retrieved or modified is the one identified by the
+ *     last name element.&lt;/li&gt;
+ * &lt;li&gt;&lt;strong&gt;Indexed (&lt;code&gt;name[index]&lt;/code&gt;)&lt;/strong&gt; - The underlying
+ *     property value is assumed to be an array, or this JavaBean is assumed
+ *     to have indexed property getter and setter methods.  The appropriate
+ *     (zero-relative) entry in the array is selected.  &lt;code&gt;List&lt;/code&gt;
+ *     objects are now also supported for read/write.  You simply need to define
+ *     a getter that returns the &lt;code&gt;List&lt;/code&gt;&lt;/li&gt;
+ * &lt;li&gt;&lt;strong&gt;Mapped (&lt;code&gt;name(key)&lt;/code&gt;)&lt;/strong&gt; - The JavaBean
+ *     is assumed to have an property getter and setter methods with an
+ *     additional attribute of type &lt;code&gt;java.lang.String&lt;/code&gt;.&lt;/li&gt;
+ * &lt;li&gt;&lt;strong&gt;Combined (&lt;code&gt;name1.name2[index].name3(key)&lt;/code&gt;)&lt;/strong&gt; -
+ *     Combining mapped, nested, and indexed references is also
+ *     supported.&lt;/li&gt;
+ * &lt;/ul&gt;
+ *
+ * @version $Id$
+ * @see Resolver
+ * @see PropertyUtils
+ * @since 1.7
+ */
+
+public class PropertyUtilsBean {
+
+<span class="fc" id="L96">    private Resolver resolver = new DefaultResolver();</span>
+
+    // --------------------------------------------------------- Class Methods
+
+    /**
+     * Return the PropertyUtils bean instance.
+     * @return The PropertyUtils bean instance
+     */
+    protected static PropertyUtilsBean getInstance() {
+<span class="fc" id="L105">        return BeanUtilsBean.getInstance().getPropertyUtils();</span>
+    }
+
+    // --------------------------------------------------------- Variables
+
+    /**
+     * The cache of PropertyDescriptor arrays for beans we have already
+     * introspected, keyed by the java.lang.Class of this object.
+     */
+<span class="fc" id="L114">    private WeakFastHashMap&lt;Class&lt;?&gt;, BeanIntrospectionData&gt; descriptorsCache = null;</span>
+<span class="fc" id="L115">    private WeakFastHashMap&lt;Class&lt;?&gt;, Map&gt; mappedDescriptorsCache = null;</span>
+
+    /** An empty object array */
+<span class="fc" id="L118">    private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];</span>
+
+    /** Log instance */
+<span class="fc" id="L121">    private final Log log = LogFactory.getLog(PropertyUtilsBean.class);</span>
+
+    /** The list with BeanIntrospector objects. */
+    private final List&lt;BeanIntrospector&gt; introspectors;
+
+    // ---------------------------------------------------------- Constructors
+
+    /** Base constructor */
+<span class="fc" id="L129">    public PropertyUtilsBean() {</span>
+<span class="fc" id="L130">        descriptorsCache = new WeakFastHashMap&lt;&gt;();</span>
+<span class="fc" id="L131">        descriptorsCache.setFast(true);</span>
+<span class="fc" id="L132">        mappedDescriptorsCache = new WeakFastHashMap&lt;&gt;();</span>
+<span class="fc" id="L133">        mappedDescriptorsCache.setFast(true);</span>
+<span class="fc" id="L134">        introspectors = new CopyOnWriteArrayList&lt;&gt;();</span>
+<span class="fc" id="L135">        resetBeanIntrospectors();</span>
+<span class="fc" id="L136">    }</span>
+
+
+    // --------------------------------------------------------- Public Methods
+
+
+    /**
+     * Return the configured {@link Resolver} implementation used by BeanUtils.
+     * &lt;p&gt;
+     * The {@link Resolver} handles the &lt;i&gt;property name&lt;/i&gt;
+     * expressions and the implementation in use effectively
+     * controls the dialect of the &lt;i&gt;expression language&lt;/i&gt;
+     * that BeanUtils recongnises.
+     * &lt;p&gt;
+     * {@link DefaultResolver} is the default implementation used.
+     *
+     * @return resolver The property expression resolver.
+     * @since 1.8.0
+     */
+    public Resolver getResolver() {
+<span class="fc" id="L156">        return resolver;</span>
+    }
+
+    /**
+     * Configure the {@link Resolver} implementation used by BeanUtils.
+     * &lt;p&gt;
+     * The {@link Resolver} handles the &lt;i&gt;property name&lt;/i&gt;
+     * expressions and the implementation in use effectively
+     * controls the dialect of the &lt;i&gt;expression language&lt;/i&gt;
+     * that BeanUtils recongnises.
+     * &lt;p&gt;
+     * {@link DefaultResolver} is the default implementation used.
+     *
+     * @param resolver The property expression resolver.
+     * @since 1.8.0
+     */
+    public void setResolver(final Resolver resolver) {
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        if (resolver == null) {</span>
+<span class="nc" id="L174">            this.resolver = new DefaultResolver();</span>
+        } else {
+<span class="nc" id="L176">            this.resolver = resolver;</span>
+        }
+<span class="nc" id="L178">    }</span>
+
+    /**
+     * Resets the {@link BeanIntrospector} objects registered at this instance. After this
+     * method was called, only the default {@code BeanIntrospector} is registered.
+     *
+     * @since 1.9
+     */
+    public final void resetBeanIntrospectors() {
+<span class="fc" id="L187">        introspectors.clear();</span>
+<span class="fc" id="L188">        introspectors.add(DefaultBeanIntrospector.INSTANCE);</span>
+<span class="fc" id="L189">    }</span>
+
+    /**
+     * Adds a &lt;code&gt;BeanIntrospector&lt;/code&gt;. This object is invoked when the
+     * property descriptors of a class need to be obtained.
+     *
+     * @param introspector the &lt;code&gt;BeanIntrospector&lt;/code&gt; to be added (must
+     *        not be &lt;b&gt;null&lt;/b&gt;
+     * @throws IllegalArgumentException if the argument is &lt;b&gt;null&lt;/b&gt;
+     * @since 1.9
+     */
+    public void addBeanIntrospector(final BeanIntrospector introspector) {
+<span class="fc bfc" id="L201" title="All 2 branches covered.">        if (introspector == null) {</span>
+<span class="fc" id="L202">            throw new IllegalArgumentException(</span>
+                    &quot;BeanIntrospector must not be null!&quot;);
+        }
+<span class="fc" id="L205">        introspectors.add(introspector);</span>
+<span class="fc" id="L206">    }</span>
+
+    /**
+     * Removes the specified &lt;code&gt;BeanIntrospector&lt;/code&gt;.
+     *
+     * @param introspector the &lt;code&gt;BeanIntrospector&lt;/code&gt; to be removed
+     * @return &lt;b&gt;true&lt;/b&gt; if the &lt;code&gt;BeanIntrospector&lt;/code&gt; existed and
+     *         could be removed, &lt;b&gt;false&lt;/b&gt; otherwise
+     * @since 1.9
+     */
+    public boolean removeBeanIntrospector(final BeanIntrospector introspector) {
+<span class="fc" id="L217">        return introspectors.remove(introspector);</span>
+    }
+
+    /**
+     * Clear any cached property descriptors information for all classes
+     * loaded by any class loaders.  This is useful in cases where class
+     * loaders are thrown away to implement class reloading.
+     */
+    public void clearDescriptors() {
+
+<span class="fc" id="L227">        descriptorsCache.clear();</span>
+<span class="fc" id="L228">        mappedDescriptorsCache.clear();</span>
+<span class="fc" id="L229">        Introspector.flushCaches();</span>
+
+<span class="fc" id="L231">    }</span>
+
+
+    /**
+     * &lt;p&gt;Copy property values from the &quot;origin&quot; bean to the &quot;destination&quot; bean
+     * for all cases where the property names are the same (even though the
+     * actual getter and setter methods might have been customized via
+     * &lt;code&gt;BeanInfo&lt;/code&gt; classes).  No conversions are performed on the
+     * actual property values -- it is assumed that the values retrieved from
+     * the origin bean are assignment-compatible with the types expected by
+     * the destination bean.&lt;/p&gt;
+     *
+     * &lt;p&gt;If the origin &quot;bean&quot; is actually a &lt;code&gt;Map&lt;/code&gt;, it is assumed
+     * to contain String-valued &lt;strong&gt;simple&lt;/strong&gt; property names as the keys, pointing
+     * at the corresponding property values that will be set in the destination
+     * bean.&lt;strong&gt;Note&lt;/strong&gt; that this method is intended to perform
+     * a &quot;shallow copy&quot; of the properties and so complex properties
+     * (for example, nested ones) will not be copied.&lt;/p&gt;
+     *
+     * &lt;p&gt;Note, that this method will not copy a List to a List, or an Object[]
+     * to an Object[]. It's specifically for copying JavaBean properties. &lt;/p&gt;
+     *
+     * @param dest Destination bean whose properties are modified
+     * @param orig Origin bean whose properties are retrieved
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if the &lt;code&gt;dest&lt;/code&gt; or
+     *  &lt;code&gt;orig&lt;/code&gt; argument is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void copyProperties(final Object dest, final Object orig)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="pc bpc" id="L269" title="1 of 2 branches missed.">        if (dest == null) {</span>
+<span class="nc" id="L270">            throw new IllegalArgumentException</span>
+                    (&quot;No destination bean specified&quot;);
+        }
+<span class="pc bpc" id="L273" title="1 of 2 branches missed.">        if (orig == null) {</span>
+<span class="nc" id="L274">            throw new IllegalArgumentException(&quot;No origin bean specified&quot;);</span>
+        }
+
+<span class="fc bfc" id="L277" title="All 2 branches covered.">        if (orig instanceof DynaBean) {</span>
+<span class="fc" id="L278">            final DynaProperty[] origDescriptors =</span>
+<span class="fc" id="L279">                ((DynaBean) orig).getDynaClass().getDynaProperties();</span>
+<span class="fc bfc" id="L280" title="All 2 branches covered.">            for (final DynaProperty origDescriptor : origDescriptors) {</span>
+<span class="fc" id="L281">                final String name = origDescriptor.getName();</span>
+<span class="fc bfc" id="L282" title="All 4 branches covered.">                if (isReadable(orig, name) &amp;&amp; isWriteable(dest, name)) {</span>
+                    try {
+<span class="fc" id="L284">                        final Object value = ((DynaBean) orig).get(name);</span>
+<span class="pc bpc" id="L285" title="1 of 2 branches missed.">                        if (dest instanceof DynaBean) {</span>
+<span class="fc" id="L286">                            ((DynaBean) dest).set(name, value);</span>
+                        } else {
+<span class="nc" id="L288">                                setSimpleProperty(dest, name, value);</span>
+                        }
+<span class="nc" id="L290">                    } catch (final NoSuchMethodException e) {</span>
+<span class="nc bnc" id="L291" title="All 2 branches missed.">                        if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L292">                            log.debug(&quot;Error writing to '&quot; + name + &quot;' on class '&quot; + dest.getClass() + &quot;'&quot;, e);</span>
+                        }
+<span class="fc" id="L294">                    }</span>
+                }
+            }
+<span class="fc bfc" id="L297" title="All 2 branches covered.">        } else if (orig instanceof Map) {</span>
+<span class="fc bfc" id="L298" title="All 2 branches covered.">            for (final Map.Entry&lt;?, ?&gt; entry : ((Map&lt;?, ?&gt;) orig).entrySet()) {</span>
+<span class="fc" id="L299">                final String name = (String)entry.getKey();</span>
+<span class="fc bfc" id="L300" title="All 2 branches covered.">                if (isWriteable(dest, name)) {</span>
+                    try {
+<span class="fc bfc" id="L302" title="All 2 branches covered.">                        if (dest instanceof DynaBean) {</span>
+<span class="fc" id="L303">                            ((DynaBean) dest).set(name, entry.getValue());</span>
+                        } else {
+<span class="fc" id="L305">                            setSimpleProperty(dest, name, entry.getValue());</span>
+                        }
+<span class="nc" id="L307">                    } catch (final NoSuchMethodException e) {</span>
+<span class="nc bnc" id="L308" title="All 2 branches missed.">                        if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L309">                            log.debug(&quot;Error writing to '&quot; + name + &quot;' on class '&quot; + dest.getClass() + &quot;'&quot;, e);</span>
+                        }
+<span class="fc" id="L311">                    }</span>
+                }
+<span class="fc" id="L313">            }</span>
+        } else /* if (orig is a standard JavaBean) */ {
+<span class="fc" id="L315">            final PropertyDescriptor[] origDescriptors =</span>
+<span class="fc" id="L316">                getPropertyDescriptors(orig);</span>
+<span class="fc bfc" id="L317" title="All 2 branches covered.">            for (final PropertyDescriptor origDescriptor : origDescriptors) {</span>
+<span class="fc" id="L318">                final String name = origDescriptor.getName();</span>
+<span class="fc bfc" id="L319" title="All 4 branches covered.">                if (isReadable(orig, name) &amp;&amp; isWriteable(dest, name)) {</span>
+                    try {
+<span class="nc" id="L321">                        final Object value = getSimpleProperty(orig, name);</span>
+<span class="nc bnc" id="L322" title="All 2 branches missed.">                        if (dest instanceof DynaBean) {</span>
+<span class="nc" id="L323">                            ((DynaBean) dest).set(name, value);</span>
+                        } else {
+<span class="nc" id="L325">                                setSimpleProperty(dest, name, value);</span>
+                        }
+<span class="fc" id="L327">                    } catch (final NoSuchMethodException e) {</span>
+<span class="pc bpc" id="L328" title="1 of 2 branches missed.">                        if (log.isDebugEnabled()) {</span>
+<span class="nc" id="L329">                            log.debug(&quot;Error writing to '&quot; + name + &quot;' on class '&quot; + dest.getClass() + &quot;'&quot;, e);</span>
+                        }
+<span class="nc" id="L331">                    }</span>
+                }
+            }
+        }
+
+<span class="fc" id="L336">    }</span>
+
+
+    /**
+     * &lt;p&gt;Return the entire set of properties for which the specified bean
+     * provides a read method.  This map contains the unconverted property
+     * values for all properties for which a read method is provided
+     * (i.e. where the &lt;code&gt;getReadMethod()&lt;/code&gt; returns non-null).&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not account for mapped properties.&lt;/p&gt;
+     *
+     * @param bean Bean whose properties are to be extracted
+     * @return The set of properties for the bean
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Map&lt;String, Object&gt; describe(final Object bean)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="pc bpc" id="L362" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L363">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc" id="L365">        final Map&lt;String, Object&gt; description = new HashMap&lt;&gt;();</span>
+<span class="fc bfc" id="L366" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L367">            final DynaProperty[] descriptors =</span>
+<span class="fc" id="L368">                ((DynaBean) bean).getDynaClass().getDynaProperties();</span>
+<span class="fc bfc" id="L369" title="All 2 branches covered.">            for (final DynaProperty descriptor : descriptors) {</span>
+<span class="fc" id="L370">                final String name = descriptor.getName();</span>
+<span class="fc" id="L371">                description.put(name, getProperty(bean, name));</span>
+            }
+<span class="fc" id="L373">        } else {</span>
+<span class="fc" id="L374">            final PropertyDescriptor[] descriptors =</span>
+<span class="fc" id="L375">                getPropertyDescriptors(bean);</span>
+<span class="fc bfc" id="L376" title="All 2 branches covered.">            for (final PropertyDescriptor descriptor : descriptors) {</span>
+<span class="fc" id="L377">                final String name = descriptor.getName();</span>
+<span class="fc bfc" id="L378" title="All 2 branches covered.">                if (descriptor.getReadMethod() != null) {</span>
+<span class="fc" id="L379">                    description.put(name, getProperty(bean, name));</span>
+                }
+            }
+        }
+<span class="fc" id="L383">        return description;</span>
+
+    }
+
+
+    /**
+     * Return the value of the specified indexed property of the specified
+     * bean, with no type conversions.  The zero-relative index of the
+     * required value must be included (in square brackets) as a suffix to
+     * the property name, or &lt;code&gt;IllegalArgumentException&lt;/code&gt; will be
+     * thrown.  In addition to supporting the JavaBeans specification, this
+     * method has been extended to support &lt;code&gt;List&lt;/code&gt; objects as well.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name &lt;code&gt;propertyname[index]&lt;/code&gt; of the property value
+     *  to be extracted
+     * @return the indexed property value
+     *
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the valid range for the underlying array or List
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getIndexedProperty(final Object bean, String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L416" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L417">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L419" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L420">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L421">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Identify the index of the requested individual property
+<span class="fc" id="L425">        int index = -1;</span>
+        try {
+<span class="fc" id="L427">            index = resolver.getIndex(name);</span>
+<span class="nc" id="L428">        } catch (final IllegalArgumentException e) {</span>
+<span class="nc" id="L429">            throw new IllegalArgumentException(&quot;Invalid indexed property '&quot; +</span>
+<span class="nc" id="L430">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;' &quot; +</span>
+<span class="nc" id="L431">                    e.getMessage());</span>
+<span class="fc" id="L432">        }</span>
+<span class="fc bfc" id="L433" title="All 2 branches covered.">        if (index &lt; 0) {</span>
+<span class="fc" id="L434">            throw new IllegalArgumentException(&quot;Invalid indexed property '&quot; +</span>
+<span class="fc" id="L435">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Isolate the name
+<span class="fc" id="L439">        name = resolver.getProperty(name);</span>
+
+        // Request the specified indexed property value
+<span class="fc" id="L442">        return getIndexedProperty(bean, name, index);</span>
+
+    }
+
+
+    /**
+     * Return the value of the specified indexed property of the specified
+     * bean, with no type conversions.  In addition to supporting the JavaBeans
+     * specification, this method has been extended to support
+     * &lt;code&gt;List&lt;/code&gt; objects as well.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name Simple property name of the property value to be extracted
+     * @param index Index of the property value to be extracted
+     * @return the indexed property value
+     *
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the valid range for the underlying property
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getIndexedProperty(final Object bean,
+                                            final String name, final int index)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L474" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L475">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L477" title="All 4 branches covered.">        if (name == null || name.length() == 0) {</span>
+<span class="fc bfc" id="L478" title="All 2 branches covered.">            if (bean.getClass().isArray()) {</span>
+<span class="fc" id="L479">                return Array.get(bean, index);</span>
+<span class="fc bfc" id="L480" title="All 2 branches covered.">            } else if (bean instanceof List) {</span>
+<span class="fc" id="L481">                return ((List&lt;?&gt;)bean).get(index);</span>
+            }
+        }
+<span class="fc bfc" id="L484" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L485">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L486">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Handle DynaBean instances specially
+<span class="fc bfc" id="L490" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L491">            final DynaProperty descriptor =</span>
+<span class="fc" id="L492">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L493" title="All 2 branches covered.">            if (descriptor == null) {</span>
+<span class="fc" id="L494">                throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L495">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L497">            return ((DynaBean) bean).get(name, index);</span>
+        }
+
+        // Retrieve the property descriptor for the specified property
+<span class="fc" id="L501">        final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L502">                getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L503" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L504">            throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L505">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Call the indexed getter method if there is one
+<span class="fc bfc" id="L509" title="All 2 branches covered.">        if (descriptor instanceof IndexedPropertyDescriptor) {</span>
+<span class="fc" id="L510">            Method readMethod = ((IndexedPropertyDescriptor) descriptor).</span>
+<span class="fc" id="L511">                    getIndexedReadMethod();</span>
+<span class="fc" id="L512">            readMethod = MethodUtils.getAccessibleMethod(bean.getClass(), readMethod);</span>
+<span class="fc bfc" id="L513" title="All 2 branches covered.">            if (readMethod != null) {</span>
+<span class="fc" id="L514">                final Object[] subscript = new Object[1];</span>
+<span class="fc" id="L515">                subscript[0] = Integer.valueOf(index);</span>
+                try {
+<span class="fc" id="L517">                    return invokeMethod(readMethod,bean, subscript);</span>
+<span class="fc" id="L518">                } catch (final InvocationTargetException e) {</span>
+<span class="pc bpc" id="L519" title="1 of 2 branches missed.">                    if (e.getTargetException() instanceof</span>
+                            IndexOutOfBoundsException) {
+<span class="fc" id="L521">                        throw (IndexOutOfBoundsException)</span>
+<span class="fc" id="L522">                                e.getTargetException();</span>
+                    }
+<span class="nc" id="L524">                    throw e;</span>
+                }
+            }
+        }
+
+        // Otherwise, the underlying property must be an array
+<span class="fc" id="L530">        final Method readMethod = getReadMethod(bean.getClass(), descriptor);</span>
+<span class="fc bfc" id="L531" title="All 2 branches covered.">        if (readMethod == null) {</span>
+<span class="fc" id="L532">            throw new NoSuchMethodException(&quot;Property '&quot; + name + &quot;' has no &quot; +</span>
+<span class="fc" id="L533">                    &quot;getter method on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Call the property getter and return the value
+<span class="fc" id="L537">        final Object value = invokeMethod(readMethod, bean, EMPTY_OBJECT_ARRAY);</span>
+<span class="fc bfc" id="L538" title="All 2 branches covered.">        if (!value.getClass().isArray()) {</span>
+<span class="pc bpc" id="L539" title="1 of 2 branches missed.">            if (!(value instanceof java.util.List)) {</span>
+<span class="nc" id="L540">                throw new IllegalArgumentException(&quot;Property '&quot; + name +</span>
+<span class="nc" id="L541">                        &quot;' is not indexed on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+            //get the List's value
+<span class="fc" id="L544">            return ((java.util.List&lt;?&gt;) value).get(index);</span>
+        }
+        //get the array's value
+        try {
+<span class="fc" id="L548">            return Array.get(value, index);</span>
+<span class="fc" id="L549">        } catch (final ArrayIndexOutOfBoundsException e) {</span>
+<span class="fc" id="L550">            throw new ArrayIndexOutOfBoundsException(&quot;Index: &quot; +</span>
+<span class="fc" id="L551">                    index + &quot;, Size: &quot; + Array.getLength(value) +</span>
+                    &quot; for property '&quot; + name + &quot;'&quot;);
+        }
+
+    }
+
+
+    /**
+     * Return the value of the specified mapped property of the
+     * specified bean, with no type conversions.  The key of the
+     * required value must be included (in brackets) as a suffix to
+     * the property name, or &lt;code&gt;IllegalArgumentException&lt;/code&gt; will be
+     * thrown.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name &lt;code&gt;propertyname(key)&lt;/code&gt; of the property value
+     *  to be extracted
+     * @return the mapped property value
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getMappedProperty(final Object bean, String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L581" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L582">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L584" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L585">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L586">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Identify the key of the requested individual property
+<span class="fc" id="L590">        String key  = null;</span>
+        try {
+<span class="fc" id="L592">            key = resolver.getKey(name);</span>
+<span class="nc" id="L593">        } catch (final IllegalArgumentException e) {</span>
+<span class="nc" id="L594">            throw new IllegalArgumentException</span>
+                    (&quot;Invalid mapped property '&quot; + name +
+<span class="nc" id="L596">                    &quot;' on bean class '&quot; + bean.getClass() + &quot;' &quot; + e.getMessage());</span>
+<span class="fc" id="L597">        }</span>
+<span class="fc bfc" id="L598" title="All 2 branches covered.">        if (key == null) {</span>
+<span class="fc" id="L599">            throw new IllegalArgumentException(&quot;Invalid mapped property '&quot; +</span>
+<span class="fc" id="L600">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Isolate the name
+<span class="fc" id="L604">        name = resolver.getProperty(name);</span>
+
+        // Request the specified indexed property value
+<span class="fc" id="L607">        return getMappedProperty(bean, name, key);</span>
+
+    }
+
+
+    /**
+     * Return the value of the specified mapped property of the specified
+     * bean, with no type conversions.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name Mapped property name of the property value to be extracted
+     * @param key Key of the property value to be extracted
+     * @return the mapped property value
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getMappedProperty(final Object bean,
+                                           final String name, final String key)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L633" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L634">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L636" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L637">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L638">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+<span class="fc bfc" id="L640" title="All 2 branches covered.">        if (key == null) {</span>
+<span class="fc" id="L641">            throw new IllegalArgumentException(&quot;No key specified for property '&quot; +</span>
+<span class="fc" id="L642">                    name + &quot;' on bean class &quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Handle DynaBean instances specially
+<span class="fc bfc" id="L646" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L647">            final DynaProperty descriptor =</span>
+<span class="fc" id="L648">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L649" title="All 2 branches covered.">            if (descriptor == null) {</span>
+<span class="fc" id="L650">                throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L651">                        name + &quot;'+ on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L653">            return ((DynaBean) bean).get(name, key);</span>
+        }
+
+<span class="fc" id="L656">        Object result = null;</span>
+
+        // Retrieve the property descriptor for the specified property
+<span class="fc" id="L659">        final PropertyDescriptor descriptor = getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L660" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L661">            throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L662">                    name + &quot;'+ on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+<span class="fc bfc" id="L665" title="All 2 branches covered.">        if (descriptor instanceof MappedPropertyDescriptor) {</span>
+            // Call the keyed getter method if there is one
+<span class="fc" id="L667">            Method readMethod = ((MappedPropertyDescriptor) descriptor).</span>
+<span class="fc" id="L668">                    getMappedReadMethod();</span>
+<span class="fc" id="L669">            readMethod = MethodUtils.getAccessibleMethod(bean.getClass(), readMethod);</span>
+<span class="fc bfc" id="L670" title="All 2 branches covered.">            if (readMethod != null) {</span>
+<span class="fc" id="L671">                final Object[] keyArray = new Object[1];</span>
+<span class="fc" id="L672">                keyArray[0] = key;</span>
+<span class="fc" id="L673">                result = invokeMethod(readMethod, bean, keyArray);</span>
+<span class="fc" id="L674">            } else {</span>
+<span class="fc" id="L675">                throw new NoSuchMethodException(&quot;Property '&quot; + name +</span>
+                        &quot;' has no mapped getter method on bean class '&quot; +
+<span class="fc" id="L677">                        bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L679">        } else {</span>
+          /* means that the result has to be retrieved from a map */
+<span class="fc" id="L681">          final Method readMethod = getReadMethod(bean.getClass(), descriptor);</span>
+<span class="pc bpc" id="L682" title="1 of 2 branches missed.">          if (readMethod != null) {</span>
+<span class="fc" id="L683">            final Object invokeResult = invokeMethod(readMethod, bean, EMPTY_OBJECT_ARRAY);</span>
+            /* test and fetch from the map */
+<span class="pc bpc" id="L685" title="1 of 2 branches missed.">            if (invokeResult instanceof java.util.Map) {</span>
+<span class="fc" id="L686">              result = ((java.util.Map&lt;?, ?&gt;)invokeResult).get(key);</span>
+            }
+<span class="fc" id="L688">          } else {</span>
+<span class="nc" id="L689">            throw new NoSuchMethodException(&quot;Property '&quot; + name +</span>
+                    &quot;' has no mapped getter method on bean class '&quot; +
+<span class="nc" id="L691">                    bean.getClass() + &quot;'&quot;);</span>
+          }
+        }
+<span class="fc" id="L694">        return result;</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return the mapped property descriptors for this bean class.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param beanClass Bean class to be introspected
+     * @return the mapped property descriptors
+     */
+    Map&lt;Class&lt;?&gt;, Map&gt; getMappedPropertyDescriptors(final Class&lt;?&gt; beanClass) {
+
+<span class="pc bpc" id="L709" title="1 of 2 branches missed.">        if (beanClass == null) {</span>
+<span class="nc" id="L710">            return null;</span>
+        }
+
+        // Look up any cached descriptors for this bean class
+<span class="fc" id="L714">        return mappedDescriptorsCache.get(beanClass);</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return the mapped property descriptors for this bean.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param bean Bean to be introspected
+     * @return the mapped property descriptors
+     */
+    Map getMappedPropertyDescriptors(final Object bean) {
+
+<span class="pc bpc" id="L729" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L730">            return null;</span>
+        }
+<span class="fc" id="L732">        return getMappedPropertyDescriptors(bean.getClass());</span>
+
+    }
+
+
+    /**
+     * Return the value of the (possibly nested) property of the specified
+     * name, for the specified bean, with no type conversions.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name Possibly nested name of the property to be extracted
+     * @return the nested property value
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws NestedNullException if a nested reference to a
+     *  property returns null
+     * @throws InvocationTargetException
+     * if the property accessor method throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getNestedProperty(Object bean, String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L760" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L761">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L763" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L764">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L765">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Resolve nested references
+<span class="fc bfc" id="L769" title="All 2 branches covered.">        while (resolver.hasNested(name)) {</span>
+<span class="fc" id="L770">            final String next = resolver.next(name);</span>
+<span class="fc" id="L771">            Object nestedBean = null;</span>
+<span class="fc bfc" id="L772" title="All 2 branches covered.">            if (bean instanceof Map) {</span>
+<span class="fc" id="L773">                nestedBean = getPropertyOfMapBean((Map&lt;?, ?&gt;) bean, next);</span>
+<span class="fc bfc" id="L774" title="All 2 branches covered.">            } else if (resolver.isMapped(next)) {</span>
+<span class="fc" id="L775">                nestedBean = getMappedProperty(bean, next);</span>
+<span class="fc bfc" id="L776" title="All 2 branches covered.">            } else if (resolver.isIndexed(next)) {</span>
+<span class="fc" id="L777">                nestedBean = getIndexedProperty(bean, next);</span>
+            } else {
+<span class="fc" id="L779">                nestedBean = getSimpleProperty(bean, next);</span>
+            }
+<span class="fc bfc" id="L781" title="All 2 branches covered.">            if (nestedBean == null) {</span>
+<span class="fc" id="L782">                throw new NestedNullException</span>
+                        (&quot;Null property value for '&quot; + name +
+<span class="fc" id="L784">                        &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L786">            bean = nestedBean;</span>
+<span class="fc" id="L787">            name = resolver.remove(name);</span>
+<span class="fc" id="L788">        }</span>
+
+<span class="fc bfc" id="L790" title="All 2 branches covered.">        if (bean instanceof Map) {</span>
+<span class="fc" id="L791">            bean = getPropertyOfMapBean((Map&lt;?, ?&gt;) bean, name);</span>
+<span class="fc bfc" id="L792" title="All 2 branches covered.">        } else if (resolver.isMapped(name)) {</span>
+<span class="fc" id="L793">            bean = getMappedProperty(bean, name);</span>
+<span class="fc bfc" id="L794" title="All 2 branches covered.">        } else if (resolver.isIndexed(name)) {</span>
+<span class="fc" id="L795">            bean = getIndexedProperty(bean, name);</span>
+        } else {
+<span class="fc" id="L797">            bean = getSimpleProperty(bean, name);</span>
+        }
+<span class="fc" id="L799">        return bean;</span>
+
+    }
+
+    /**
+     * This method is called by getNestedProperty and setNestedProperty to
+     * define what it means to get a property from an object which implements
+     * Map. See setPropertyOfMapBean for more information.
+     *
+     * @param bean Map bean
+     * @param propertyName The property name
+     * @return the property value
+     *
+     * @throws IllegalArgumentException when the propertyName is regarded as
+     * being invalid.
+     *
+     * @throws IllegalAccessException just in case subclasses override this
+     * method to try to access real getter methods and find permission is denied.
+     *
+     * @throws InvocationTargetException just in case subclasses override this
+     * method to try to access real getter methods, and find it throws an
+     * exception when invoked.
+     *
+     * @throws NoSuchMethodException just in case subclasses override this
+     * method to try to access real getter methods, and want to fail if
+     * no simple method is available.
+     * @since 1.8.0
+     */
+    protected Object getPropertyOfMapBean(final Map&lt;?, ?&gt; bean, String propertyName)
+        throws IllegalArgumentException, IllegalAccessException,
+        InvocationTargetException, NoSuchMethodException {
+
+<span class="fc bfc" id="L831" title="All 2 branches covered.">        if (resolver.isMapped(propertyName)) {</span>
+<span class="fc" id="L832">            final String name = resolver.getProperty(propertyName);</span>
+<span class="pc bpc" id="L833" title="2 of 4 branches missed.">            if (name == null || name.length() == 0) {</span>
+<span class="fc" id="L834">                propertyName = resolver.getKey(propertyName);</span>
+            }
+        }
+
+<span class="fc bfc" id="L838" title="All 2 branches covered.">        if (resolver.isIndexed(propertyName) ||</span>
+<span class="pc bpc" id="L839" title="1 of 2 branches missed.">            resolver.isMapped(propertyName)) {</span>
+<span class="fc" id="L840">            throw new IllegalArgumentException(</span>
+                    &quot;Indexed or mapped properties are not supported on&quot;
+                    + &quot; objects of type Map: &quot; + propertyName);
+        }
+
+<span class="fc" id="L845">        return bean.get(propertyName);</span>
+    }
+
+
+
+    /**
+     * Return the value of the specified property of the specified bean,
+     * no matter which property reference format is used, with no
+     * type conversions.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name Possibly indexed and/or nested name of the property
+     *  to be extracted
+     * @return the property value
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getProperty(final Object bean, final String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc" id="L873">        return getNestedProperty(bean, name);</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Retrieve the property descriptor for the specified property of the
+     * specified bean, or return &lt;code&gt;null&lt;/code&gt; if there is no such
+     * descriptor.  This method resolves indexed and nested property
+     * references in the same manner as other methods in this class, except
+     * that if the last (or only) name element is indexed, the descriptor
+     * for the last resolved property itself is returned.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * &lt;p&gt;Note that for Java 8 and above, this method no longer return
+     * IndexedPropertyDescriptor for {@link List}-typed properties, only for
+     * properties typed as native array. (BEANUTILS-492).
+     *
+     * @param bean Bean for which a property descriptor is requested
+     * @param name Possibly indexed and/or nested name of the property for
+     *  which a property descriptor is requested
+     * @return the property descriptor
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws IllegalArgumentException if a nested reference to a
+     *  property returns null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public PropertyDescriptor getPropertyDescriptor(Object bean,
+                                                           String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L913" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L914">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L916" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L917">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L918">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Resolve nested references
+<span class="fc bfc" id="L922" title="All 2 branches covered.">        while (resolver.hasNested(name)) {</span>
+<span class="fc" id="L923">            final String next = resolver.next(name);</span>
+<span class="fc" id="L924">            final Object nestedBean = getProperty(bean, next);</span>
+<span class="pc bpc" id="L925" title="1 of 2 branches missed.">            if (nestedBean == null) {</span>
+<span class="nc" id="L926">                throw new NestedNullException</span>
+                        (&quot;Null property value for '&quot; + next +
+<span class="nc" id="L928">                        &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L930">            bean = nestedBean;</span>
+<span class="fc" id="L931">            name = resolver.remove(name);</span>
+<span class="fc" id="L932">        }</span>
+
+        // Remove any subscript from the final name value
+<span class="fc" id="L935">        name = resolver.getProperty(name);</span>
+
+        // Look up and return this property from our cache
+        // creating and adding it to the cache if not found.
+<span class="pc bpc" id="L939" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L940">            return null;</span>
+        }
+
+<span class="fc" id="L943">        final BeanIntrospectionData data = getIntrospectionData(bean.getClass());</span>
+<span class="fc" id="L944">        PropertyDescriptor result = data.getDescriptor(name);</span>
+<span class="fc bfc" id="L945" title="All 2 branches covered.">        if (result != null) {</span>
+<span class="fc" id="L946">            return result;</span>
+        }
+
+<span class="fc" id="L949">        Map mappedDescriptors =</span>
+<span class="fc" id="L950">                getMappedPropertyDescriptors(bean);</span>
+<span class="fc bfc" id="L951" title="All 2 branches covered.">        if (mappedDescriptors == null) {</span>
+<span class="fc" id="L952">            mappedDescriptors = new ConcurrentHashMap&lt;Class&lt;?&gt;, Map&gt;();</span>
+<span class="fc" id="L953">            mappedDescriptorsCache.put(bean.getClass(), mappedDescriptors);</span>
+        }
+<span class="fc" id="L955">        result = (PropertyDescriptor) mappedDescriptors.get(name);</span>
+<span class="fc bfc" id="L956" title="All 2 branches covered.">        if (result == null) {</span>
+            // not found, try to create it
+            try {
+<span class="fc" id="L959">                result = new MappedPropertyDescriptor(name, bean.getClass());</span>
+<span class="fc" id="L960">            } catch (final IntrospectionException ie) {</span>
+                /* Swallow IntrospectionException
+                 * TODO: Why?
+                 */
+<span class="fc" id="L964">            }</span>
+<span class="fc bfc" id="L965" title="All 2 branches covered.">            if (result != null) {</span>
+<span class="fc" id="L966">                mappedDescriptors.put(name, result);</span>
+            }
+        }
+
+<span class="fc" id="L970">        return result;</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Retrieve the property descriptors for the specified class,
+     * introspecting and caching them the first time a particular bean class
+     * is encountered.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param beanClass Bean class for which property descriptors are requested
+     * @return the property descriptors
+     *
+     * @throws IllegalArgumentException if &lt;code&gt;beanClass&lt;/code&gt; is null
+     */
+    public PropertyDescriptor[]
+            getPropertyDescriptors(final Class&lt;?&gt; beanClass) {
+
+<span class="fc" id="L990">        return getIntrospectionData(beanClass).getDescriptors();</span>
+
+    }
+
+    /**
+     * &lt;p&gt;Retrieve the property descriptors for the specified bean,
+     * introspecting and caching them the first time a particular bean class
+     * is encountered.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param bean Bean for which property descriptors are requested
+     * @return the property descriptors
+     *
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; is null
+     */
+    public PropertyDescriptor[] getPropertyDescriptors(final Object bean) {
+
+<span class="pc bpc" id="L1008" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L1009">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc" id="L1011">        return getPropertyDescriptors(bean.getClass());</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return the Java Class repesenting the property editor class that has
+     * been registered for this property (if any).  This method follows the
+     * same name resolution rules used by &lt;code&gt;getPropertyDescriptor()&lt;/code&gt;,
+     * so if the last element of a name reference is indexed, the property
+     * editor for the underlying property's class is returned.&lt;/p&gt;
+     *
+     * &lt;p&gt;Note that &lt;code&gt;null&lt;/code&gt; will be returned if there is no property,
+     * or if there is no registered property editor class.  Because this
+     * return value is ambiguous, you should determine the existence of the
+     * property itself by other means.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param bean Bean for which a property descriptor is requested
+     * @param name Possibly indexed and/or nested name of the property for
+     *  which a property descriptor is requested
+     * @return the property editor class
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws IllegalArgumentException if a nested reference to a
+     *  property returns null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Class&lt;?&gt; getPropertyEditorClass(final Object bean, final String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="nc bnc" id="L1050" title="All 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L1051">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="nc bnc" id="L1053" title="All 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L1054">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L1055">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+<span class="nc" id="L1058">        final PropertyDescriptor descriptor =</span>
+<span class="nc" id="L1059">                getPropertyDescriptor(bean, name);</span>
+<span class="nc bnc" id="L1060" title="All 2 branches missed.">        if (descriptor != null) {</span>
+<span class="nc" id="L1061">            return descriptor.getPropertyEditorClass();</span>
+        }
+<span class="nc" id="L1063">        return null;</span>
+
+    }
+
+
+    /**
+     * Return the Java Class representing the property type of the specified
+     * property, or &lt;code&gt;null&lt;/code&gt; if there is no such property for the
+     * specified bean.  This method follows the same name resolution rules
+     * used by &lt;code&gt;getPropertyDescriptor()&lt;/code&gt;, so if the last element
+     * of a name reference is indexed, the type of the property itself will
+     * be returned.  If the last (or only) element has no property with the
+     * specified name, &lt;code&gt;null&lt;/code&gt; is returned.
+     * &lt;p&gt;
+     * If the property is an indexed property (e.g. &lt;code&gt;String[]&lt;/code&gt;),
+     * this method will return the type of the items within that array.
+     * Note that from Java 8 and newer, this method do not support
+     * such index types from items within an Collection, and will
+     * instead return the collection type (e.g. java.util.List) from the
+     * getter mtethod.
+     *
+     * @param bean Bean for which a property descriptor is requested
+     * @param name Possibly indexed and/or nested name of the property for
+     *  which a property descriptor is requested
+     * @return The property type
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws IllegalArgumentException if a nested reference to a
+     *  property returns null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Class&lt;?&gt; getPropertyType(Object bean, String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="pc bpc" id="L1104" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L1105">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L1107" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L1108">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L1109">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Resolve nested references
+<span class="fc bfc" id="L1113" title="All 2 branches covered.">        while (resolver.hasNested(name)) {</span>
+<span class="fc" id="L1114">            final String next = resolver.next(name);</span>
+<span class="fc" id="L1115">            final Object nestedBean = getProperty(bean, next);</span>
+<span class="fc bfc" id="L1116" title="All 2 branches covered.">            if (nestedBean == null) {</span>
+<span class="fc" id="L1117">                throw new NestedNullException</span>
+                        (&quot;Null property value for '&quot; + next +
+<span class="fc" id="L1119">                        &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1121">            bean = nestedBean;</span>
+<span class="fc" id="L1122">            name = resolver.remove(name);</span>
+<span class="fc" id="L1123">        }</span>
+
+        // Remove any subscript from the final name value
+<span class="fc" id="L1126">        name = resolver.getProperty(name);</span>
+
+        // Special handling for DynaBeans
+<span class="fc bfc" id="L1129" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L1130">            final DynaProperty descriptor =</span>
+<span class="fc" id="L1131">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="pc bpc" id="L1132" title="1 of 2 branches missed.">            if (descriptor == null) {</span>
+<span class="nc" id="L1133">                return null;</span>
+            }
+<span class="fc" id="L1135">            final Class&lt;?&gt; type = descriptor.getType();</span>
+<span class="pc bpc" id="L1136" title="1 of 2 branches missed.">            if (type == null) {</span>
+<span class="nc" id="L1137">                return null;</span>
+<span class="pc bpc" id="L1138" title="1 of 2 branches missed.">            } else if (type.isArray()) {</span>
+<span class="nc" id="L1139">                return type.getComponentType();</span>
+            } else {
+<span class="fc" id="L1141">                return type;</span>
+            }
+        }
+
+<span class="fc" id="L1145">        final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L1146">                getPropertyDescriptor(bean, name);</span>
+<span class="pc bpc" id="L1147" title="1 of 2 branches missed.">        if (descriptor == null) {</span>
+<span class="nc" id="L1148">            return null;</span>
+<span class="fc bfc" id="L1149" title="All 2 branches covered.">        } else if (descriptor instanceof IndexedPropertyDescriptor) {</span>
+<span class="fc" id="L1150">            return ((IndexedPropertyDescriptor) descriptor).</span>
+<span class="fc" id="L1151">                    getIndexedPropertyType();</span>
+<span class="fc bfc" id="L1152" title="All 2 branches covered.">        } else if (descriptor instanceof MappedPropertyDescriptor) {</span>
+<span class="fc" id="L1153">            return ((MappedPropertyDescriptor) descriptor).</span>
+<span class="fc" id="L1154">                    getMappedPropertyType();</span>
+        } else {
+<span class="fc" id="L1156">            return descriptor.getPropertyType();</span>
+        }
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return an accessible property getter method for this property,
+     * if there is one; otherwise return &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param descriptor Property descriptor to return a getter for
+     * @return The read method
+     */
+    public Method getReadMethod(final PropertyDescriptor descriptor) {
+
+<span class="fc" id="L1173">        return MethodUtils.getAccessibleMethod(descriptor.getReadMethod());</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return an accessible property getter method for this property,
+     * if there is one; otherwise return &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param clazz The class of the read method will be invoked on
+     * @param descriptor Property descriptor to return a getter for
+     * @return The read method
+     */
+    Method getReadMethod(final Class&lt;?&gt; clazz, final PropertyDescriptor descriptor) {
+<span class="fc" id="L1189">        return MethodUtils.getAccessibleMethod(clazz, descriptor.getReadMethod());</span>
+    }
+
+
+    /**
+     * Return the value of the specified simple property of the specified
+     * bean, with no type conversions.
+     *
+     * @param bean Bean whose property is to be extracted
+     * @param name Name of the property to be extracted
+     * @return The property value
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws IllegalArgumentException if the property name
+     *  is nested or indexed
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public Object getSimpleProperty(final Object bean, final String name)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L1216" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L1217">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L1219" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L1220">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L1221">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Validate the syntax of the property name
+<span class="fc bfc" id="L1225" title="All 2 branches covered.">        if (resolver.hasNested(name)) {</span>
+<span class="fc" id="L1226">            throw new IllegalArgumentException</span>
+                    (&quot;Nested property names are not allowed: Property '&quot; +
+<span class="fc" id="L1228">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+<span class="fc bfc" id="L1229" title="All 2 branches covered.">        } else if (resolver.isIndexed(name)) {</span>
+<span class="fc" id="L1230">            throw new IllegalArgumentException</span>
+                    (&quot;Indexed property names are not allowed: Property '&quot; +
+<span class="fc" id="L1232">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+<span class="pc bpc" id="L1233" title="1 of 2 branches missed.">        } else if (resolver.isMapped(name)) {</span>
+<span class="nc" id="L1234">            throw new IllegalArgumentException</span>
+                    (&quot;Mapped property names are not allowed: Property '&quot; +
+<span class="nc" id="L1236">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Handle DynaBean instances specially
+<span class="fc bfc" id="L1240" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L1241">            final DynaProperty descriptor =</span>
+<span class="fc" id="L1242">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L1243" title="All 2 branches covered.">            if (descriptor == null) {</span>
+<span class="fc" id="L1244">                throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+                        name + &quot;' on dynaclass '&quot; +
+<span class="fc" id="L1246">                        ((DynaBean) bean).getDynaClass() + &quot;'&quot; );</span>
+            }
+<span class="fc" id="L1248">            return ((DynaBean) bean).get(name);</span>
+        }
+
+        // Retrieve the property getter method for the specified property
+<span class="fc" id="L1252">        final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L1253">                getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L1254" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L1255">            throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L1256">                    name + &quot;' on class '&quot; + bean.getClass() + &quot;'&quot; );</span>
+        }
+<span class="fc" id="L1258">        final Method readMethod = getReadMethod(bean.getClass(), descriptor);</span>
+<span class="fc bfc" id="L1259" title="All 2 branches covered.">        if (readMethod == null) {</span>
+<span class="fc" id="L1260">            throw new NoSuchMethodException(&quot;Property '&quot; + name +</span>
+<span class="fc" id="L1261">                    &quot;' has no getter method in class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Call the property getter and return the value
+<span class="fc" id="L1265">        final Object value = invokeMethod(readMethod, bean, EMPTY_OBJECT_ARRAY);</span>
+<span class="fc" id="L1266">        return value;</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return an accessible property setter method for this property,
+     * if there is one; otherwise return &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;em&gt;Note:&lt;/em&gt; This method does not work correctly with custom bean
+     * introspection under certain circumstances. It may return {@code null}
+     * even if a write method is defined for the property in question. Use
+     * {@link #getWriteMethod(Class, PropertyDescriptor)} to be sure that the
+     * correct result is returned.&lt;/p&gt;
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param descriptor Property descriptor to return a setter for
+     * @return The write method
+     */
+    public Method getWriteMethod(final PropertyDescriptor descriptor) {
+
+<span class="fc" id="L1287">        return MethodUtils.getAccessibleMethod(descriptor.getWriteMethod());</span>
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return an accessible property setter method for this property,
+     * if there is one; otherwise return &lt;code&gt;null&lt;/code&gt;.&lt;/p&gt;
+     *
+     * &lt;p&gt;&lt;strong&gt;FIXME&lt;/strong&gt; - Does not work with DynaBeans.&lt;/p&gt;
+     *
+     * @param clazz The class of the read method will be invoked on
+     * @param descriptor Property descriptor to return a setter for
+     * @return The write method
+     * @since 1.9.1
+     */
+    public Method getWriteMethod(final Class&lt;?&gt; clazz, final PropertyDescriptor descriptor) {
+<span class="fc" id="L1304">        final BeanIntrospectionData data = getIntrospectionData(clazz);</span>
+<span class="fc" id="L1305">        return MethodUtils.getAccessibleMethod(clazz,</span>
+<span class="fc" id="L1306">                data.getWriteMethod(clazz, descriptor));</span>
+    }
+
+
+    /**
+     * &lt;p&gt;Return &lt;code&gt;true&lt;/code&gt; if the specified property name identifies
+     * a readable property on the specified bean; otherwise, return
+     * &lt;code&gt;false&lt;/code&gt;.
+     *
+     * @param bean Bean to be examined (may be a {@link DynaBean}
+     * @param name Property name to be evaluated
+     * @return &lt;code&gt;true&lt;/code&gt; if the property is readable,
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     *
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt;
+     *  or &lt;code&gt;name&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt;
+     *
+     * @since BeanUtils 1.6
+     */
+    public boolean isReadable(Object bean, String name) {
+
+        // Validate method parameters
+<span class="pc bpc" id="L1328" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L1329">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L1331" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L1332">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L1333">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Resolve nested references
+<span class="fc bfc" id="L1337" title="All 2 branches covered.">        while (resolver.hasNested(name)) {</span>
+<span class="fc" id="L1338">            final String next = resolver.next(name);</span>
+<span class="fc" id="L1339">            Object nestedBean = null;</span>
+            try {
+<span class="fc" id="L1341">                nestedBean = getProperty(bean, next);</span>
+<span class="nc" id="L1342">            } catch (final IllegalAccessException e) {</span>
+<span class="nc" id="L1343">                return false;</span>
+<span class="nc" id="L1344">            } catch (final InvocationTargetException e) {</span>
+<span class="nc" id="L1345">                return false;</span>
+<span class="nc" id="L1346">            } catch (final NoSuchMethodException e) {</span>
+<span class="nc" id="L1347">                return false;</span>
+<span class="fc" id="L1348">            }</span>
+<span class="fc bfc" id="L1349" title="All 2 branches covered.">            if (nestedBean == null) {</span>
+<span class="fc" id="L1350">                throw new NestedNullException</span>
+                        (&quot;Null property value for '&quot; + next +
+<span class="fc" id="L1352">                        &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1354">            bean = nestedBean;</span>
+<span class="fc" id="L1355">            name = resolver.remove(name);</span>
+<span class="fc" id="L1356">        }</span>
+
+        // Remove any subscript from the final name value
+<span class="fc" id="L1359">        name = resolver.getProperty(name);</span>
+
+        // Treat WrapDynaBean as special case - may be a write-only property
+        // (see Jira issue# BEANUTILS-61)
+<span class="fc bfc" id="L1363" title="All 2 branches covered.">        if (bean instanceof WrapDynaBean) {</span>
+<span class="fc" id="L1364">            bean = ((WrapDynaBean)bean).getInstance();</span>
+        }
+
+        // Return the requested result
+<span class="fc bfc" id="L1368" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+            // All DynaBean properties are readable
+<span class="pc bpc" id="L1370" title="1 of 2 branches missed.">            return ((DynaBean) bean).getDynaClass().getDynaProperty(name) != null;</span>
+        }
+        try {
+<span class="fc" id="L1373">            final PropertyDescriptor desc =</span>
+<span class="fc" id="L1374">                getPropertyDescriptor(bean, name);</span>
+<span class="pc bpc" id="L1375" title="1 of 2 branches missed.">            if (desc != null) {</span>
+<span class="fc" id="L1376">                Method readMethod = getReadMethod(bean.getClass(), desc);</span>
+<span class="fc bfc" id="L1377" title="All 2 branches covered.">                if (readMethod == null) {</span>
+<span class="fc bfc" id="L1378" title="All 2 branches covered.">                    if (desc instanceof IndexedPropertyDescriptor) {</span>
+<span class="fc" id="L1379">                        readMethod = ((IndexedPropertyDescriptor) desc).getIndexedReadMethod();</span>
+<span class="fc bfc" id="L1380" title="All 2 branches covered.">                    } else if (desc instanceof MappedPropertyDescriptor) {</span>
+<span class="fc" id="L1381">                        readMethod = ((MappedPropertyDescriptor) desc).getMappedReadMethod();</span>
+                    }
+<span class="fc" id="L1383">                    readMethod = MethodUtils.getAccessibleMethod(bean.getClass(), readMethod);</span>
+                }
+<span class="fc bfc" id="L1385" title="All 2 branches covered.">                return readMethod != null;</span>
+            }
+<span class="nc" id="L1387">            return false;</span>
+<span class="nc" id="L1388">        } catch (final IllegalAccessException e) {</span>
+<span class="nc" id="L1389">            return false;</span>
+<span class="nc" id="L1390">        } catch (final InvocationTargetException e) {</span>
+<span class="nc" id="L1391">            return false;</span>
+<span class="nc" id="L1392">        } catch (final NoSuchMethodException e) {</span>
+<span class="nc" id="L1393">            return false;</span>
+        }
+
+    }
+
+
+    /**
+     * &lt;p&gt;Return &lt;code&gt;true&lt;/code&gt; if the specified property name identifies
+     * a writeable property on the specified bean; otherwise, return
+     * &lt;code&gt;false&lt;/code&gt;.
+     *
+     * @param bean Bean to be examined (may be a {@link DynaBean}
+     * @param name Property name to be evaluated
+     * @return &lt;code&gt;true&lt;/code&gt; if the property is writeable,
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     *
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt;
+     *  or &lt;code&gt;name&lt;/code&gt; is &lt;code&gt;null&lt;/code&gt;
+     *
+     * @since BeanUtils 1.6
+     */
+    public boolean isWriteable(Object bean, String name) {
+
+        // Validate method parameters
+<span class="pc bpc" id="L1417" title="1 of 2 branches missed.">        if (bean == null) {</span>
+<span class="nc" id="L1418">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L1420" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L1421">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L1422">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Resolve nested references
+<span class="fc bfc" id="L1426" title="All 2 branches covered.">        while (resolver.hasNested(name)) {</span>
+<span class="fc" id="L1427">            final String next = resolver.next(name);</span>
+<span class="fc" id="L1428">            Object nestedBean = null;</span>
+            try {
+<span class="fc" id="L1430">                nestedBean = getProperty(bean, next);</span>
+<span class="nc" id="L1431">            } catch (final IllegalAccessException e) {</span>
+<span class="nc" id="L1432">                return false;</span>
+<span class="nc" id="L1433">            } catch (final InvocationTargetException e) {</span>
+<span class="nc" id="L1434">                return false;</span>
+<span class="nc" id="L1435">            } catch (final NoSuchMethodException e) {</span>
+<span class="nc" id="L1436">                return false;</span>
+<span class="fc" id="L1437">            }</span>
+<span class="fc bfc" id="L1438" title="All 2 branches covered.">            if (nestedBean == null) {</span>
+<span class="fc" id="L1439">                throw new NestedNullException</span>
+                        (&quot;Null property value for '&quot; + next +
+<span class="fc" id="L1441">                        &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1443">            bean = nestedBean;</span>
+<span class="fc" id="L1444">            name = resolver.remove(name);</span>
+<span class="fc" id="L1445">        }</span>
+
+        // Remove any subscript from the final name value
+<span class="fc" id="L1448">        name = resolver.getProperty(name);</span>
+
+        // Treat WrapDynaBean as special case - may be a read-only property
+        // (see Jira issue# BEANUTILS-61)
+<span class="fc bfc" id="L1452" title="All 2 branches covered.">        if (bean instanceof WrapDynaBean) {</span>
+<span class="fc" id="L1453">            bean = ((WrapDynaBean)bean).getInstance();</span>
+        }
+
+        // Return the requested result
+<span class="fc bfc" id="L1457" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+            // All DynaBean properties are writeable
+<span class="fc bfc" id="L1459" title="All 2 branches covered.">            return ((DynaBean) bean).getDynaClass().getDynaProperty(name) != null;</span>
+        }
+        try {
+<span class="fc" id="L1462">            final PropertyDescriptor desc =</span>
+<span class="fc" id="L1463">                getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L1464" title="All 2 branches covered.">            if (desc != null) {</span>
+<span class="fc" id="L1465">                Method writeMethod = getWriteMethod(bean.getClass(), desc);</span>
+<span class="fc bfc" id="L1466" title="All 2 branches covered.">                if (writeMethod == null) {</span>
+<span class="fc bfc" id="L1467" title="All 2 branches covered.">                    if (desc instanceof IndexedPropertyDescriptor) {</span>
+<span class="fc" id="L1468">                        writeMethod = ((IndexedPropertyDescriptor) desc).getIndexedWriteMethod();</span>
+<span class="fc bfc" id="L1469" title="All 2 branches covered.">                    } else if (desc instanceof MappedPropertyDescriptor) {</span>
+<span class="fc" id="L1470">                        writeMethod = ((MappedPropertyDescriptor) desc).getMappedWriteMethod();</span>
+                    }
+<span class="fc" id="L1472">                    writeMethod = MethodUtils.getAccessibleMethod(bean.getClass(), writeMethod);</span>
+                }
+<span class="fc bfc" id="L1474" title="All 2 branches covered.">                return writeMethod != null;</span>
+            }
+<span class="fc" id="L1476">            return false;</span>
+<span class="nc" id="L1477">        } catch (final IllegalAccessException e) {</span>
+<span class="nc" id="L1478">            return false;</span>
+<span class="nc" id="L1479">        } catch (final InvocationTargetException e) {</span>
+<span class="nc" id="L1480">            return false;</span>
+<span class="nc" id="L1481">        } catch (final NoSuchMethodException e) {</span>
+<span class="nc" id="L1482">            return false;</span>
+        }
+
+    }
+
+
+    /**
+     * Set the value of the specified indexed property of the specified
+     * bean, with no type conversions.  The zero-relative index of the
+     * required value must be included (in square brackets) as a suffix to
+     * the property name, or &lt;code&gt;IllegalArgumentException&lt;/code&gt; will be
+     * thrown.  In addition to supporting the JavaBeans specification, this
+     * method has been extended to support &lt;code&gt;List&lt;/code&gt; objects as well.
+     *
+     * @param bean Bean whose property is to be modified
+     * @param name &lt;code&gt;propertyname[index]&lt;/code&gt; of the property value
+     *  to be modified
+     * @param value Value to which the specified property element
+     *  should be set
+     *
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the valid range for the underlying property
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setIndexedProperty(final Object bean, String name,
+                                          final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L1518" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L1519">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L1521" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L1522">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L1523">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Identify the index of the requested individual property
+<span class="fc" id="L1527">        int index = -1;</span>
+        try {
+<span class="fc" id="L1529">            index = resolver.getIndex(name);</span>
+<span class="nc" id="L1530">        } catch (final IllegalArgumentException e) {</span>
+<span class="nc" id="L1531">            throw new IllegalArgumentException(&quot;Invalid indexed property '&quot; +</span>
+<span class="nc" id="L1532">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+<span class="fc" id="L1533">        }</span>
+<span class="fc bfc" id="L1534" title="All 2 branches covered.">        if (index &lt; 0) {</span>
+<span class="fc" id="L1535">            throw new IllegalArgumentException(&quot;Invalid indexed property '&quot; +</span>
+<span class="fc" id="L1536">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Isolate the name
+<span class="fc" id="L1540">        name = resolver.getProperty(name);</span>
+
+        // Set the specified indexed property value
+<span class="fc" id="L1543">        setIndexedProperty(bean, name, index, value);</span>
+
+<span class="fc" id="L1545">    }</span>
+
+
+    /**
+     * Set the value of the specified indexed property of the specified
+     * bean, with no type conversions.  In addition to supporting the JavaBeans
+     * specification, this method has been extended to support
+     * &lt;code&gt;List&lt;/code&gt; objects as well.
+     *
+     * @param bean Bean whose property is to be set
+     * @param name Simple property name of the property value to be set
+     * @param index Index of the property value to be set
+     * @param value Value to which the indexed property element is to be set
+     *
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the valid range for the underlying property
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setIndexedProperty(final Object bean, final String name,
+                                          final int index, final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L1575" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L1576">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L1578" title="All 4 branches covered.">        if (name == null || name.length() == 0) {</span>
+<span class="fc bfc" id="L1579" title="All 2 branches covered.">            if (bean.getClass().isArray()) {</span>
+<span class="fc" id="L1580">                Array.set(bean, index, value);</span>
+<span class="fc" id="L1581">                return;</span>
+<span class="fc bfc" id="L1582" title="All 2 branches covered.">            } else if (bean instanceof List) {</span>
+<span class="fc" id="L1583">                final List&lt;Object&gt; list = toObjectList(bean);</span>
+<span class="fc" id="L1584">                list.set(index, value);</span>
+<span class="fc" id="L1585">                return;</span>
+            }
+        }
+<span class="fc bfc" id="L1588" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L1589">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L1590">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Handle DynaBean instances specially
+<span class="fc bfc" id="L1594" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L1595">            final DynaProperty descriptor =</span>
+<span class="fc" id="L1596">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L1597" title="All 2 branches covered.">            if (descriptor == null) {</span>
+<span class="fc" id="L1598">                throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L1599">                        name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1601">            ((DynaBean) bean).set(name, index, value);</span>
+<span class="fc" id="L1602">            return;</span>
+        }
+
+        // Retrieve the property descriptor for the specified property
+<span class="fc" id="L1606">        final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L1607">                getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L1608" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L1609">            throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L1610">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Call the indexed setter method if there is one
+<span class="fc bfc" id="L1614" title="All 2 branches covered.">        if (descriptor instanceof IndexedPropertyDescriptor) {</span>
+<span class="fc" id="L1615">            Method writeMethod = ((IndexedPropertyDescriptor) descriptor).</span>
+<span class="fc" id="L1616">                    getIndexedWriteMethod();</span>
+<span class="fc" id="L1617">            writeMethod = MethodUtils.getAccessibleMethod(bean.getClass(), writeMethod);</span>
+<span class="fc bfc" id="L1618" title="All 2 branches covered.">            if (writeMethod != null) {</span>
+<span class="fc" id="L1619">                final Object[] subscript = new Object[2];</span>
+<span class="fc" id="L1620">                subscript[0] = Integer.valueOf(index);</span>
+<span class="fc" id="L1621">                subscript[1] = value;</span>
+                try {
+<span class="pc bpc" id="L1623" title="1 of 2 branches missed.">                    if (log.isTraceEnabled()) {</span>
+<span class="nc bnc" id="L1624" title="All 2 branches missed.">                        final String valueClassName =</span>
+                            value == null ? &quot;&lt;null&gt;&quot;
+<span class="nc" id="L1626">                                          : value.getClass().getName();</span>
+<span class="nc" id="L1627">                        log.trace(&quot;setSimpleProperty: Invoking method &quot;</span>
+                                  + writeMethod +&quot; with index=&quot; + index
+                                  + &quot;, value=&quot; + value
+                                  + &quot; (class &quot; + valueClassName+ &quot;)&quot;);
+                    }
+<span class="fc" id="L1632">                    invokeMethod(writeMethod, bean, subscript);</span>
+<span class="fc" id="L1633">                } catch (final InvocationTargetException e) {</span>
+<span class="pc bpc" id="L1634" title="1 of 2 branches missed.">                    if (e.getTargetException() instanceof</span>
+                            IndexOutOfBoundsException) {
+<span class="fc" id="L1636">                        throw (IndexOutOfBoundsException)</span>
+<span class="fc" id="L1637">                                e.getTargetException();</span>
+                    }
+<span class="nc" id="L1639">                    throw e;</span>
+<span class="fc" id="L1640">                }</span>
+<span class="fc" id="L1641">                return;</span>
+            }
+        }
+
+        // Otherwise, the underlying property must be an array or a list
+<span class="fc" id="L1646">        final Method readMethod = getReadMethod(bean.getClass(), descriptor);</span>
+<span class="fc bfc" id="L1647" title="All 2 branches covered.">        if (readMethod == null) {</span>
+<span class="fc" id="L1648">            throw new NoSuchMethodException(&quot;Property '&quot; + name +</span>
+<span class="fc" id="L1649">                    &quot;' has no getter method on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Call the property getter to get the array or list
+<span class="fc" id="L1653">        final Object array = invokeMethod(readMethod, bean, EMPTY_OBJECT_ARRAY);</span>
+<span class="fc bfc" id="L1654" title="All 2 branches covered.">        if (!array.getClass().isArray()) {</span>
+<span class="pc bpc" id="L1655" title="1 of 2 branches missed.">            if (array instanceof List) {</span>
+                // Modify the specified value in the List
+<span class="fc" id="L1657">                final List&lt;Object&gt; list = toObjectList(array);</span>
+<span class="fc" id="L1658">                list.set(index, value);</span>
+<span class="fc" id="L1659">            } else {</span>
+<span class="nc" id="L1660">                throw new IllegalArgumentException(&quot;Property '&quot; + name +</span>
+<span class="nc" id="L1661">                        &quot;' is not indexed on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+        } else {
+            // Modify the specified value in the array
+<span class="fc" id="L1665">            Array.set(array, index, value);</span>
+        }
+
+<span class="fc" id="L1668">    }</span>
+
+
+    /**
+     * Set the value of the specified mapped property of the
+     * specified bean, with no type conversions.  The key of the
+     * value to set must be included (in brackets) as a suffix to
+     * the property name, or &lt;code&gt;IllegalArgumentException&lt;/code&gt; will be
+     * thrown.
+     *
+     * @param bean Bean whose property is to be set
+     * @param name &lt;code&gt;propertyname(key)&lt;/code&gt; of the property value
+     *  to be set
+     * @param value The property value to be set
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setMappedProperty(final Object bean, String name,
+                                         final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L1695" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L1696">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="pc bpc" id="L1698" title="1 of 2 branches missed.">        if (name == null) {</span>
+<span class="nc" id="L1699">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="nc" id="L1700">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Identify the key of the requested individual property
+<span class="fc" id="L1704">        String key  = null;</span>
+        try {
+<span class="fc" id="L1706">            key = resolver.getKey(name);</span>
+<span class="nc" id="L1707">        } catch (final IllegalArgumentException e) {</span>
+<span class="nc" id="L1708">            throw new IllegalArgumentException</span>
+                    (&quot;Invalid mapped property '&quot; + name +
+<span class="nc" id="L1710">                    &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+<span class="fc" id="L1711">        }</span>
+<span class="fc bfc" id="L1712" title="All 2 branches covered.">        if (key == null) {</span>
+<span class="fc" id="L1713">            throw new IllegalArgumentException</span>
+                    (&quot;Invalid mapped property '&quot; + name +
+<span class="fc" id="L1715">                    &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Isolate the name
+<span class="fc" id="L1719">        name = resolver.getProperty(name);</span>
+
+        // Request the specified indexed property value
+<span class="fc" id="L1722">        setMappedProperty(bean, name, key, value);</span>
+
+<span class="fc" id="L1724">    }</span>
+
+
+    /**
+     * Set the value of the specified mapped property of the specified
+     * bean, with no type conversions.
+     *
+     * @param bean Bean whose property is to be set
+     * @param name Mapped property name of the property value to be set
+     * @param key Key of the property value to be set
+     * @param value The property value to be set
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setMappedProperty(final Object bean, final String name,
+                                         final String key, final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L1748" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L1749">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L1751" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L1752">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L1753">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+<span class="fc bfc" id="L1755" title="All 2 branches covered.">        if (key == null) {</span>
+<span class="fc" id="L1756">            throw new IllegalArgumentException(&quot;No key specified for property '&quot; +</span>
+<span class="fc" id="L1757">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Handle DynaBean instances specially
+<span class="fc bfc" id="L1761" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L1762">            final DynaProperty descriptor =</span>
+<span class="fc" id="L1763">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L1764" title="All 2 branches covered.">            if (descriptor == null) {</span>
+<span class="fc" id="L1765">                throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L1766">                        name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1768">            ((DynaBean) bean).set(name, key, value);</span>
+<span class="fc" id="L1769">            return;</span>
+        }
+
+        // Retrieve the property descriptor for the specified property
+<span class="fc" id="L1773">        final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L1774">                getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L1775" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L1776">            throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L1777">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+<span class="fc bfc" id="L1780" title="All 2 branches covered.">        if (descriptor instanceof MappedPropertyDescriptor) {</span>
+            // Call the keyed setter method if there is one
+<span class="fc" id="L1782">            Method mappedWriteMethod =</span>
+                    ((MappedPropertyDescriptor) descriptor).
+<span class="fc" id="L1784">                    getMappedWriteMethod();</span>
+<span class="fc" id="L1785">            mappedWriteMethod = MethodUtils.getAccessibleMethod(bean.getClass(), mappedWriteMethod);</span>
+<span class="fc bfc" id="L1786" title="All 2 branches covered.">            if (mappedWriteMethod != null) {</span>
+<span class="fc" id="L1787">                final Object[] params = new Object[2];</span>
+<span class="fc" id="L1788">                params[0] = key;</span>
+<span class="fc" id="L1789">                params[1] = value;</span>
+<span class="pc bpc" id="L1790" title="1 of 2 branches missed.">                if (log.isTraceEnabled()) {</span>
+<span class="nc bnc" id="L1791" title="All 2 branches missed.">                    final String valueClassName =</span>
+<span class="nc" id="L1792">                        value == null ? &quot;&lt;null&gt;&quot; : value.getClass().getName();</span>
+<span class="nc" id="L1793">                    log.trace(&quot;setSimpleProperty: Invoking method &quot;</span>
+                              + mappedWriteMethod + &quot; with key=&quot; + key
+                              + &quot;, value=&quot; + value
+                              + &quot; (class &quot; + valueClassName +&quot;)&quot;);
+                }
+<span class="fc" id="L1798">                invokeMethod(mappedWriteMethod, bean, params);</span>
+<span class="fc" id="L1799">            } else {</span>
+<span class="fc" id="L1800">                throw new NoSuchMethodException</span>
+                    (&quot;Property '&quot; + name + &quot;' has no mapped setter method&quot; +
+<span class="fc" id="L1802">                     &quot;on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1804">        } else {</span>
+          /* means that the result has to be retrieved from a map */
+<span class="fc" id="L1806">          final Method readMethod = getReadMethod(bean.getClass(), descriptor);</span>
+<span class="pc bpc" id="L1807" title="1 of 2 branches missed.">          if (readMethod != null) {</span>
+<span class="fc" id="L1808">            final Object invokeResult = invokeMethod(readMethod, bean, EMPTY_OBJECT_ARRAY);</span>
+            /* test and fetch from the map */
+<span class="pc bpc" id="L1810" title="1 of 2 branches missed.">            if (invokeResult instanceof java.util.Map) {</span>
+<span class="fc" id="L1811">              final java.util.Map&lt;String, Object&gt; map = toPropertyMap(invokeResult);</span>
+<span class="fc" id="L1812">              map.put(key, value);</span>
+            }
+<span class="fc" id="L1814">          } else {</span>
+<span class="nc" id="L1815">            throw new NoSuchMethodException(&quot;Property '&quot; + name +</span>
+                    &quot;' has no mapped getter method on bean class '&quot; +
+<span class="nc" id="L1817">                    bean.getClass() + &quot;'&quot;);</span>
+          }
+        }
+
+<span class="fc" id="L1821">    }</span>
+
+
+    /**
+     * Set the value of the (possibly nested) property of the specified
+     * name, for the specified bean, with no type conversions.
+     * &lt;p&gt;
+     * Example values for parameter &quot;name&quot; are:
+     * &lt;ul&gt;
+     * &lt;li&gt; &quot;a&quot; -- sets the value of property a of the specified bean &lt;/li&gt;
+     * &lt;li&gt; &quot;a.b&quot; -- gets the value of property a of the specified bean,
+     * then on that object sets the value of property b.&lt;/li&gt;
+     * &lt;li&gt; &quot;a(key)&quot; -- sets a value of mapped-property a on the specified
+     * bean. This effectively means bean.setA(&quot;key&quot;).&lt;/li&gt;
+     * &lt;li&gt; &quot;a[3]&quot; -- sets a value of indexed-property a on the specified
+     * bean. This effectively means bean.setA(3).&lt;/li&gt;
+     * &lt;/ul&gt;
+     *
+     * @param bean Bean whose property is to be modified
+     * @param name Possibly nested name of the property to be modified
+     * @param value Value to which the property is to be set
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws IllegalArgumentException if a nested reference to a
+     *  property returns null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setNestedProperty(Object bean,
+                                         String name, final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L1859" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L1860">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L1862" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L1863">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L1864">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Resolve nested references
+<span class="fc bfc" id="L1868" title="All 2 branches covered.">        while (resolver.hasNested(name)) {</span>
+<span class="fc" id="L1869">            final String next = resolver.next(name);</span>
+<span class="fc" id="L1870">            Object nestedBean = null;</span>
+<span class="fc bfc" id="L1871" title="All 2 branches covered.">            if (bean instanceof Map) {</span>
+<span class="fc" id="L1872">                nestedBean = getPropertyOfMapBean((Map&lt;?, ?&gt;)bean, next);</span>
+<span class="fc bfc" id="L1873" title="All 2 branches covered.">            } else if (resolver.isMapped(next)) {</span>
+<span class="fc" id="L1874">                nestedBean = getMappedProperty(bean, next);</span>
+<span class="fc bfc" id="L1875" title="All 2 branches covered.">            } else if (resolver.isIndexed(next)) {</span>
+<span class="fc" id="L1876">                nestedBean = getIndexedProperty(bean, next);</span>
+            } else {
+<span class="fc" id="L1878">                nestedBean = getSimpleProperty(bean, next);</span>
+            }
+<span class="fc bfc" id="L1880" title="All 2 branches covered.">            if (nestedBean == null) {</span>
+<span class="fc" id="L1881">                throw new NestedNullException</span>
+                        (&quot;Null property value for '&quot; + name +
+<span class="fc" id="L1883">                         &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+            }
+<span class="fc" id="L1885">            bean = nestedBean;</span>
+<span class="fc" id="L1886">            name = resolver.remove(name);</span>
+<span class="fc" id="L1887">        }</span>
+
+<span class="fc bfc" id="L1889" title="All 2 branches covered.">        if (bean instanceof Map) {</span>
+<span class="fc" id="L1890">            setPropertyOfMapBean(toPropertyMap(bean), name, value);</span>
+<span class="fc bfc" id="L1891" title="All 2 branches covered.">        } else if (resolver.isMapped(name)) {</span>
+<span class="fc" id="L1892">            setMappedProperty(bean, name, value);</span>
+<span class="fc bfc" id="L1893" title="All 2 branches covered.">        } else if (resolver.isIndexed(name)) {</span>
+<span class="fc" id="L1894">            setIndexedProperty(bean, name, value);</span>
+        } else {
+<span class="fc" id="L1896">            setSimpleProperty(bean, name, value);</span>
+        }
+
+<span class="fc" id="L1899">    }</span>
+
+    /**
+     * This method is called by method setNestedProperty when the current bean
+     * is found to be a Map object, and defines how to deal with setting
+     * a property on a Map.
+     * &lt;p&gt;
+     * The standard implementation here is to:
+     * &lt;ul&gt;
+     * &lt;li&gt;call bean.set(propertyName) for all propertyName values.&lt;/li&gt;
+     * &lt;li&gt;throw an IllegalArgumentException if the property specifier
+     * contains MAPPED_DELIM or INDEXED_DELIM, as Map entries are essentially
+     * simple properties; mapping and indexing operations do not make sense
+     * when accessing a map (even thought the returned object may be a Map
+     * or an Array).&lt;/li&gt;
+     * &lt;/ul&gt;
+     * &lt;p&gt;
+     * The default behaviour of beanutils 1.7.1 or later is for assigning to
+     * &quot;a.b&quot; to mean a.put(b, obj) always. However the behaviour of beanutils
+     * version 1.6.0, 1.6.1, 1.7.0 was for &quot;a.b&quot; to mean a.setB(obj) if such
+     * a method existed, and a.put(b, obj) otherwise. In version 1.5 it meant
+     * a.put(b, obj) always (ie the same as the behaviour in the current version).
+     * In versions prior to 1.5 it meant a.setB(obj) always. [yes, this is
+     * all &lt;i&gt;very&lt;/i&gt; unfortunate]
+     * &lt;p&gt;
+     * Users who would like to customise the meaning of &quot;a.b&quot; in method
+     * setNestedProperty when a is a Map can create a custom subclass of
+     * this class and override this method to implement the behaviour of
+     * their choice, such as restoring the pre-1.4 behaviour of this class
+     * if they wish. When overriding this method, do not forget to deal
+     * with MAPPED_DELIM and INDEXED_DELIM characters in the propertyName.
+     * &lt;p&gt;
+     * Note, however, that the recommended solution for objects that
+     * implement Map but want their simple properties to come first is
+     * for &lt;i&gt;those&lt;/i&gt; objects to override their get/put methods to implement
+     * that behaviour, and &lt;i&gt;not&lt;/i&gt; to solve the problem by modifying the
+     * default behaviour of the PropertyUtilsBean class by overriding this
+     * method.
+     *
+     * @param bean Map bean
+     * @param propertyName The property name
+     * @param value the property value
+     *
+     * @throws IllegalArgumentException when the propertyName is regarded as
+     * being invalid.
+     *
+     * @throws IllegalAccessException just in case subclasses override this
+     * method to try to access real setter methods and find permission is denied.
+     *
+     * @throws InvocationTargetException just in case subclasses override this
+     * method to try to access real setter methods, and find it throws an
+     * exception when invoked.
+     *
+     * @throws NoSuchMethodException just in case subclasses override this
+     * method to try to access real setter methods, and want to fail if
+     * no simple method is available.
+     * @since 1.8.0
+     */
+    protected void setPropertyOfMapBean(final Map&lt;String, Object&gt; bean, String propertyName, final Object value)
+        throws IllegalArgumentException, IllegalAccessException,
+        InvocationTargetException, NoSuchMethodException {
+
+<span class="fc bfc" id="L1961" title="All 2 branches covered.">        if (resolver.isMapped(propertyName)) {</span>
+<span class="fc" id="L1962">            final String name = resolver.getProperty(propertyName);</span>
+<span class="pc bpc" id="L1963" title="1 of 4 branches missed.">            if (name == null || name.length() == 0) {</span>
+<span class="fc" id="L1964">                propertyName = resolver.getKey(propertyName);</span>
+            }
+        }
+
+<span class="pc bpc" id="L1968" title="1 of 2 branches missed.">        if (resolver.isIndexed(propertyName) ||</span>
+<span class="fc bfc" id="L1969" title="All 2 branches covered.">            resolver.isMapped(propertyName)) {</span>
+<span class="fc" id="L1970">            throw new IllegalArgumentException(</span>
+                    &quot;Indexed or mapped properties are not supported on&quot;
+                    + &quot; objects of type Map: &quot; + propertyName);
+        }
+
+<span class="fc" id="L1975">        bean.put(propertyName, value);</span>
+<span class="fc" id="L1976">    }</span>
+
+
+
+    /**
+     * Set the value of the specified property of the specified bean,
+     * no matter which property reference format is used, with no
+     * type conversions.
+     *
+     * @param bean Bean whose property is to be modified
+     * @param name Possibly indexed and/or nested name of the property
+     *  to be modified
+     * @param value Value to which this property is to be set
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setProperty(final Object bean, final String name, final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc" id="L2003">        setNestedProperty(bean, name, value);</span>
+
+<span class="fc" id="L2005">    }</span>
+
+
+    /**
+     * Set the value of the specified simple property of the specified bean,
+     * with no type conversions.
+     *
+     * @param bean Bean whose property is to be modified
+     * @param name Name of the property to be modified
+     * @param value Value to which the property should be set
+     *
+     * @throws IllegalAccessException if the caller does not have
+     *  access to the property accessor method
+     * @throws IllegalArgumentException if &lt;code&gt;bean&lt;/code&gt; or
+     *  &lt;code&gt;name&lt;/code&gt; is null
+     * @throws IllegalArgumentException if the property name is
+     *  nested or indexed
+     * @throws InvocationTargetException if the property accessor method
+     *  throws an exception
+     * @throws NoSuchMethodException if an accessor method for this
+     *  propety cannot be found
+     */
+    public void setSimpleProperty(final Object bean,
+                                         final String name, final Object value)
+            throws IllegalAccessException, InvocationTargetException,
+            NoSuchMethodException {
+
+<span class="fc bfc" id="L2032" title="All 2 branches covered.">        if (bean == null) {</span>
+<span class="fc" id="L2033">            throw new IllegalArgumentException(&quot;No bean specified&quot;);</span>
+        }
+<span class="fc bfc" id="L2035" title="All 2 branches covered.">        if (name == null) {</span>
+<span class="fc" id="L2036">            throw new IllegalArgumentException(&quot;No name specified for bean class '&quot; +</span>
+<span class="fc" id="L2037">                    bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Validate the syntax of the property name
+<span class="fc bfc" id="L2041" title="All 2 branches covered.">        if (resolver.hasNested(name)) {</span>
+<span class="fc" id="L2042">            throw new IllegalArgumentException</span>
+                    (&quot;Nested property names are not allowed: Property '&quot; +
+<span class="fc" id="L2044">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+<span class="fc bfc" id="L2045" title="All 2 branches covered.">        } else if (resolver.isIndexed(name)) {</span>
+<span class="fc" id="L2046">            throw new IllegalArgumentException</span>
+                    (&quot;Indexed property names are not allowed: Property '&quot; +
+<span class="fc" id="L2048">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+<span class="pc bpc" id="L2049" title="1 of 2 branches missed.">        } else if (resolver.isMapped(name)) {</span>
+<span class="nc" id="L2050">            throw new IllegalArgumentException</span>
+                    (&quot;Mapped property names are not allowed: Property '&quot; +
+<span class="nc" id="L2052">                    name + &quot;' on bean class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Handle DynaBean instances specially
+<span class="fc bfc" id="L2056" title="All 2 branches covered.">        if (bean instanceof DynaBean) {</span>
+<span class="fc" id="L2057">            final DynaProperty descriptor =</span>
+<span class="fc" id="L2058">                    ((DynaBean) bean).getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L2059" title="All 2 branches covered.">            if (descriptor == null) {</span>
+<span class="fc" id="L2060">                throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+                        name + &quot;' on dynaclass '&quot; +
+<span class="fc" id="L2062">                        ((DynaBean) bean).getDynaClass() + &quot;'&quot; );</span>
+            }
+<span class="fc" id="L2064">            ((DynaBean) bean).set(name, value);</span>
+<span class="fc" id="L2065">            return;</span>
+        }
+
+        // Retrieve the property setter method for the specified property
+<span class="fc" id="L2069">        final PropertyDescriptor descriptor =</span>
+<span class="fc" id="L2070">                getPropertyDescriptor(bean, name);</span>
+<span class="fc bfc" id="L2071" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L2072">            throw new NoSuchMethodException(&quot;Unknown property '&quot; +</span>
+<span class="fc" id="L2073">                    name + &quot;' on class '&quot; + bean.getClass() + &quot;'&quot; );</span>
+        }
+<span class="fc" id="L2075">        final Method writeMethod = getWriteMethod(bean.getClass(), descriptor);</span>
+<span class="fc bfc" id="L2076" title="All 2 branches covered.">        if (writeMethod == null) {</span>
+<span class="fc" id="L2077">            throw new NoSuchMethodException(&quot;Property '&quot; + name +</span>
+<span class="fc" id="L2078">                    &quot;' has no setter method in class '&quot; + bean.getClass() + &quot;'&quot;);</span>
+        }
+
+        // Call the property setter method
+<span class="fc" id="L2082">        final Object[] values = new Object[1];</span>
+<span class="fc" id="L2083">        values[0] = value;</span>
+<span class="pc bpc" id="L2084" title="1 of 2 branches missed.">        if (log.isTraceEnabled()) {</span>
+<span class="nc bnc" id="L2085" title="All 2 branches missed.">            final String valueClassName =</span>
+<span class="nc" id="L2086">                value == null ? &quot;&lt;null&gt;&quot; : value.getClass().getName();</span>
+<span class="nc" id="L2087">            log.trace(&quot;setSimpleProperty: Invoking method &quot; + writeMethod</span>
+                      + &quot; with value &quot; + value + &quot; (class &quot; + valueClassName + &quot;)&quot;);
+        }
+<span class="fc" id="L2090">        invokeMethod(writeMethod, bean, values);</span>
+
+<span class="fc" id="L2092">    }</span>
+
+    /** This just catches and wraps IllegalArgumentException. */
+    private Object invokeMethod(
+                        final Method method,
+                        final Object bean,
+                        final Object[] values)
+                            throws
+                                IllegalAccessException,
+                                InvocationTargetException {
+<span class="pc bpc" id="L2102" title="1 of 2 branches missed.">        if(bean == null) {</span>
+<span class="nc" id="L2103">            throw new IllegalArgumentException(&quot;No bean specified &quot; +</span>
+                &quot;- this should have been checked before reaching this method&quot;);
+        }
+
+        try {
+
+<span class="fc" id="L2109">            return method.invoke(bean, values);</span>
+
+<span class="nc" id="L2111">        } catch (final NullPointerException cause) {</span>
+            // JDK 1.3 and JDK 1.4 throw NullPointerException if an argument is
+            // null for a primitive value (JDK 1.5+ throw IllegalArgumentException)
+<span class="nc" id="L2114">            String valueString = &quot;&quot;;</span>
+<span class="nc bnc" id="L2115" title="All 2 branches missed.">            if (values != null) {</span>
+<span class="nc bnc" id="L2116" title="All 2 branches missed.">                for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="nc bnc" id="L2117" title="All 2 branches missed.">                    if (i&gt;0) {</span>
+<span class="nc" id="L2118">                        valueString += &quot;, &quot; ;</span>
+                    }
+<span class="nc bnc" id="L2120" title="All 2 branches missed.">                    if (values[i] == null) {</span>
+<span class="nc" id="L2121">                        valueString += &quot;&lt;null&gt;&quot;;</span>
+                    } else {
+<span class="nc" id="L2123">                        valueString += values[i].getClass().getName();</span>
+                    }
+                }
+            }
+<span class="nc" id="L2127">            String expectedString = &quot;&quot;;</span>
+<span class="nc" id="L2128">            final Class&lt;?&gt;[] parTypes = method.getParameterTypes();</span>
+<span class="nc bnc" id="L2129" title="All 2 branches missed.">            if (parTypes != null) {</span>
+<span class="nc bnc" id="L2130" title="All 2 branches missed.">                for (int i = 0; i &lt; parTypes.length; i++) {</span>
+<span class="nc bnc" id="L2131" title="All 2 branches missed.">                    if (i &gt; 0) {</span>
+<span class="nc" id="L2132">                        expectedString += &quot;, &quot;;</span>
+                    }
+<span class="nc" id="L2134">                    expectedString += parTypes[i].getName();</span>
+                }
+            }
+<span class="nc" id="L2137">            final IllegalArgumentException e = new IllegalArgumentException(</span>
+<span class="nc" id="L2138">                &quot;Cannot invoke &quot; + method.getDeclaringClass().getName() + &quot;.&quot;</span>
+<span class="nc" id="L2139">                + method.getName() + &quot; on bean class '&quot; + bean.getClass() +</span>
+<span class="nc" id="L2140">                &quot;' - &quot; + cause.getMessage()</span>
+                // as per https://issues.apache.org/jira/browse/BEANUTILS-224
+                + &quot; - had objects of type \&quot;&quot; + valueString
+                + &quot;\&quot; but expected signature \&quot;&quot;
+                +   expectedString + &quot;\&quot;&quot;
+                );
+<span class="nc bnc" id="L2146" title="All 2 branches missed.">            if (!BeanUtils.initCause(e, cause)) {</span>
+<span class="nc" id="L2147">                log.error(&quot;Method invocation failed&quot;, cause);</span>
+            }
+<span class="nc" id="L2149">            throw e;</span>
+<span class="fc" id="L2150">        } catch (final IllegalArgumentException cause) {</span>
+<span class="fc" id="L2151">            String valueString = &quot;&quot;;</span>
+<span class="pc bpc" id="L2152" title="1 of 2 branches missed.">            if (values != null) {</span>
+<span class="fc bfc" id="L2153" title="All 2 branches covered.">                for (int i = 0; i &lt; values.length; i++) {</span>
+<span class="pc bpc" id="L2154" title="1 of 2 branches missed.">                    if (i&gt;0) {</span>
+<span class="nc" id="L2155">                        valueString += &quot;, &quot; ;</span>
+                    }
+<span class="fc bfc" id="L2157" title="All 2 branches covered.">                    if (values[i] == null) {</span>
+<span class="fc" id="L2158">                        valueString += &quot;&lt;null&gt;&quot;;</span>
+                    } else {
+<span class="fc" id="L2160">                        valueString += values[i].getClass().getName();</span>
+                    }
+                }
+            }
+<span class="fc" id="L2164">            String expectedString = &quot;&quot;;</span>
+<span class="fc" id="L2165">            final Class&lt;?&gt;[] parTypes = method.getParameterTypes();</span>
+<span class="pc bpc" id="L2166" title="1 of 2 branches missed.">            if (parTypes != null) {</span>
+<span class="fc bfc" id="L2167" title="All 2 branches covered.">                for (int i = 0; i &lt; parTypes.length; i++) {</span>
+<span class="pc bpc" id="L2168" title="1 of 2 branches missed.">                    if (i &gt; 0) {</span>
+<span class="nc" id="L2169">                        expectedString += &quot;, &quot;;</span>
+                    }
+<span class="fc" id="L2171">                    expectedString += parTypes[i].getName();</span>
+                }
+            }
+<span class="fc" id="L2174">            final IllegalArgumentException e = new IllegalArgumentException(</span>
+<span class="fc" id="L2175">                &quot;Cannot invoke &quot; + method.getDeclaringClass().getName() + &quot;.&quot;</span>
+<span class="fc" id="L2176">                + method.getName() + &quot; on bean class '&quot; + bean.getClass() +</span>
+<span class="fc" id="L2177">                &quot;' - &quot; + cause.getMessage()</span>
+                // as per https://issues.apache.org/jira/browse/BEANUTILS-224
+                + &quot; - had objects of type \&quot;&quot; + valueString
+                + &quot;\&quot; but expected signature \&quot;&quot;
+                +   expectedString + &quot;\&quot;&quot;
+                );
+<span class="pc bpc" id="L2183" title="1 of 2 branches missed.">            if (!BeanUtils.initCause(e, cause)) {</span>
+<span class="nc" id="L2184">                log.error(&quot;Method invocation failed&quot;, cause);</span>
+            }
+<span class="fc" id="L2186">            throw e;</span>
+
+        }
+    }
+
+    /**
+     * Obtains the {@code BeanIntrospectionData} object describing the specified bean
+     * class. This object is looked up in the internal cache. If necessary, introspection
+     * is performed now on the affected bean class, and the results object is created.
+     *
+     * @param beanClass the bean class in question
+     * @return the {@code BeanIntrospectionData} object for this class
+     * @throws IllegalArgumentException if the bean class is &lt;b&gt;null&lt;/b&gt;
+     */
+    private BeanIntrospectionData getIntrospectionData(final Class&lt;?&gt; beanClass) {
+<span class="fc bfc" id="L2201" title="All 2 branches covered.">        if (beanClass == null) {</span>
+<span class="fc" id="L2202">            throw new IllegalArgumentException(&quot;No bean class specified&quot;);</span>
+        }
+
+        // Look up any cached information for this bean class
+<span class="fc" id="L2206">        BeanIntrospectionData data = descriptorsCache.get(beanClass);</span>
+<span class="fc bfc" id="L2207" title="All 2 branches covered.">        if (data == null) {</span>
+<span class="fc" id="L2208">            data = fetchIntrospectionData(beanClass);</span>
+<span class="fc" id="L2209">            descriptorsCache.put(beanClass, data);</span>
+        }
+
+<span class="fc" id="L2212">        return data;</span>
+    }
+
+    /**
+     * Performs introspection on the specified class. This method invokes all {@code BeanIntrospector} objects that were
+     * added to this instance.
+     *
+     * @param beanClass the class to be inspected
+     * @return a data object with the results of introspection
+     */
+    private BeanIntrospectionData fetchIntrospectionData(final Class&lt;?&gt; beanClass) {
+<span class="fc" id="L2223">        final DefaultIntrospectionContext ictx = new DefaultIntrospectionContext(beanClass);</span>
+
+<span class="fc bfc" id="L2225" title="All 2 branches covered.">        for (final BeanIntrospector bi : introspectors) {</span>
+            try {
+<span class="fc" id="L2227">                bi.introspect(ictx);</span>
+<span class="fc" id="L2228">            } catch (final IntrospectionException iex) {</span>
+<span class="fc" id="L2229">                log.error(&quot;Exception during introspection&quot;, iex);</span>
+<span class="fc" id="L2230">            }</span>
+<span class="fc" id="L2231">        }</span>
+
+<span class="fc" id="L2233">        return new BeanIntrospectionData(ictx.getPropertyDescriptors());</span>
+    }
+
+    /**
+     * Converts an object to a list of objects. This method is used when dealing
+     * with indexed properties. It assumes that indexed properties are stored as
+     * lists of objects.
+     *
+     * @param obj the object to be converted
+     * @return the resulting list of objects
+     */
+    private static List&lt;Object&gt; toObjectList(final Object obj) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+        final
+        // indexed properties are stored in lists of objects
+<span class="fc" id="L2248">        List&lt;Object&gt; list = (List&lt;Object&gt;) obj;</span>
+<span class="fc" id="L2249">        return list;</span>
+    }
+
+    /**
+     * Converts an object to a map with property values. This method is used
+     * when dealing with mapped properties. It assumes that mapped properties
+     * are stored in a Map&amp;lt;String, Object&amp;gt;.
+     *
+     * @param obj the object to be converted
+     * @return the resulting properties map
+     */
+    private static Map&lt;String, Object&gt; toPropertyMap(final Object obj) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+        final
+        // mapped properties are stores in maps of type &lt;String, Object&gt;
+<span class="fc" id="L2264">        Map&lt;String, Object&gt; map = (Map&lt;String, Object&gt;) obj;</span>
+<span class="fc" id="L2265">        return map;</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

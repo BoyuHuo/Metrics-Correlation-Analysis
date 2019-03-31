@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="utf-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="zh"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>BasicDynaBean.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">Apache Commons BeanUtils</a> &gt; <a href="index.source.html" class="el_package">org.apache.commons.beanutils2</a> &gt; <span class="el_source">BasicDynaBean.java</span></div><h1>BasicDynaBean.java</h1><pre class="source lang-java linenums">/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the &quot;License&quot;); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+package org.apache.commons.beanutils2;
+
+
+import java.io.Serializable;
+import java.lang.reflect.Array;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+
+/**
+ * &lt;p&gt;Minimal implementation of the &lt;code&gt;DynaBean&lt;/code&gt; interface.  Can be
+ * used as a convenience base class for more sophisticated implementations.&lt;/p&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;IMPLEMENTATION NOTE&lt;/strong&gt; - Instances of this class that are
+ * accessed from multiple threads simultaneously need to be synchronized.&lt;/p&gt;
+ *
+ * &lt;p&gt;&lt;strong&gt;IMPLEMENTATION NOTE&lt;/strong&gt; - Instances of this class can be
+ * successfully serialized and deserialized &lt;strong&gt;ONLY&lt;/strong&gt; if all
+ * property values are &lt;code&gt;Serializable&lt;/code&gt;.&lt;/p&gt;
+ *
+ * @version $Id$
+ */
+
+public class BasicDynaBean implements DynaBean, Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    // ---------------------------------------------------------- Constructors
+
+    /**
+     * Construct a new &lt;code&gt;DynaBean&lt;/code&gt; associated with the specified
+     * &lt;code&gt;DynaClass&lt;/code&gt; instance.
+     *
+     * @param dynaClass The DynaClass we are associated with
+     */
+    public BasicDynaBean(final DynaClass dynaClass) {
+
+<span class="fc" id="L57">        super();</span>
+<span class="fc" id="L58">        this.dynaClass = dynaClass;</span>
+
+<span class="fc" id="L60">    }</span>
+
+
+    // ---------------------------------------------------- Instance Variables
+
+
+    /**
+     * The &lt;code&gt;DynaClass&lt;/code&gt; &quot;base class&quot; that this DynaBean
+     * is associated with.
+     */
+<span class="fc" id="L70">    protected DynaClass dynaClass = null;</span>
+
+
+    /**
+     * The set of property values for this DynaBean, keyed by property name.
+     */
+<span class="fc" id="L76">    protected HashMap&lt;String, Object&gt; values = new HashMap&lt;&gt;();</span>
+
+    /** Map decorator for this DynaBean */
+    private transient Map&lt;String, Object&gt; mapDecorator;
+
+    /**
+     * &lt;p&gt;
+     * Return a Map representation of this DynaBean.
+     * &lt;p&gt;
+     * This, for example, could be used in JSTL in the following way to access
+     * a DynaBean's &lt;code&gt;fooProperty&lt;/code&gt;:
+     * &lt;ul&gt;&lt;li&gt;&lt;code&gt;${myDynaBean.&lt;b&gt;map&lt;/b&gt;.fooProperty}&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;
+     *
+     * @return a Map representation of this DynaBean
+     * @since 1.8.0
+     */
+    public Map&lt;String, Object&gt; getMap() {
+
+        // cache the Map
+<span class="nc bnc" id="L95" title="All 2 branches missed.">        if (mapDecorator == null) {</span>
+<span class="nc" id="L96">            mapDecorator = new DynaBeanPropertyMapDecorator(this);</span>
+        }
+<span class="nc" id="L98">        return mapDecorator;</span>
+
+    }
+
+    // ------------------------------------------------------ DynaBean Methods
+
+
+    /**
+     * Does the specified mapped property contain a value for the specified
+     * key value?
+     *
+     * @param name Name of the property to check
+     * @param key Name of the key to check
+     * @return &lt;code&gt;true&lt;/code&gt; if the mapped property contains a value for
+     * the specified key, otherwise &lt;code&gt;false&lt;/code&gt;
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public boolean contains(final String name, final String key) {
+
+<span class="fc" id="L120">        final Object value = values.get(name);</span>
+<span class="pc bpc" id="L121" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L122">            throw new NullPointerException</span>
+                    (&quot;No mapped value for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+<span class="pc bpc" id="L124" title="1 of 2 branches missed.">        } else if (value instanceof Map) {</span>
+<span class="fc" id="L125">            return ((Map&lt;?, ?&gt;) value).containsKey(key);</span>
+        } else {
+<span class="nc" id="L127">            throw new IllegalArgumentException</span>
+                    (&quot;Non-mapped property for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+        }
+
+    }
+
+
+    /**
+     * Return the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @return The property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public Object get(final String name) {
+
+        // Return any non-null value for the specified property
+<span class="fc" id="L147">        final Object value = values.get(name);</span>
+<span class="fc bfc" id="L148" title="All 2 branches covered.">        if (value != null) {</span>
+<span class="fc" id="L149">            return value;</span>
+        }
+
+        // Return a null value for a non-primitive property
+<span class="fc" id="L153">        final Class&lt;?&gt; type = getDynaProperty(name).getType();</span>
+<span class="fc bfc" id="L154" title="All 2 branches covered.">        if (!type.isPrimitive()) {</span>
+<span class="fc" id="L155">            return value;</span>
+        }
+
+        // Manufacture default values for primitive properties
+<span class="fc bfc" id="L159" title="All 2 branches covered.">        if (type == Boolean.TYPE) {</span>
+<span class="fc" id="L160">            return Boolean.FALSE;</span>
+<span class="pc bpc" id="L161" title="1 of 2 branches missed.">        } else if (type == Byte.TYPE) {</span>
+<span class="nc" id="L162">            return Byte.valueOf((byte) 0);</span>
+<span class="pc bpc" id="L163" title="1 of 2 branches missed.">        } else if (type == Character.TYPE) {</span>
+<span class="nc" id="L164">            return Character.valueOf((char) 0);</span>
+<span class="pc bpc" id="L165" title="1 of 2 branches missed.">        } else if (type == Double.TYPE) {</span>
+<span class="nc" id="L166">            return Double.valueOf(0.0);</span>
+<span class="pc bpc" id="L167" title="1 of 2 branches missed.">        } else if (type == Float.TYPE) {</span>
+<span class="fc" id="L168">            return Float.valueOf((float) 0.0);</span>
+<span class="nc bnc" id="L169" title="All 2 branches missed.">        } else if (type == Integer.TYPE) {</span>
+<span class="nc" id="L170">            return Integer.valueOf(0);</span>
+<span class="nc bnc" id="L171" title="All 2 branches missed.">        } else if (type == Long.TYPE) {</span>
+<span class="nc" id="L172">            return Long.valueOf(0);</span>
+<span class="nc bnc" id="L173" title="All 2 branches missed.">        } else if (type == Short.TYPE) {</span>
+<span class="nc" id="L174">            return Short.valueOf((short) 0);</span>
+        } else {
+<span class="nc" id="L176">            return null;</span>
+        }
+
+    }
+
+
+    /**
+     * Return the value of an indexed property with the specified name.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @param index Index of the value to be retrieved
+     * @return The indexed property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not indexed
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the range of the underlying property
+     * @throws NullPointerException if no array or List has been
+     *  initialized for this property
+     */
+    @Override
+    public Object get(final String name, final int index) {
+
+<span class="fc" id="L201">        final Object value = values.get(name);</span>
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L203">            throw new NullPointerException</span>
+                    (&quot;No indexed value for '&quot; + name + &quot;[&quot; + index + &quot;]'&quot;);
+<span class="fc bfc" id="L205" title="All 2 branches covered.">        } else if (value.getClass().isArray()) {</span>
+<span class="fc" id="L206">            return Array.get(value, index);</span>
+<span class="pc bpc" id="L207" title="1 of 2 branches missed.">        } else if (value instanceof List) {</span>
+<span class="fc" id="L208">            return ((List&lt;?&gt;) value).get(index);</span>
+        } else {
+<span class="nc" id="L210">            throw new IllegalArgumentException</span>
+                    (&quot;Non-indexed property for '&quot; + name + &quot;[&quot; + index + &quot;]'&quot;);
+        }
+
+    }
+
+
+    /**
+     * Return the value of a mapped property with the specified name,
+     * or &lt;code&gt;null&lt;/code&gt; if there is no value for the specified key.
+     *
+     * @param name Name of the property whose value is to be retrieved
+     * @param key Key of the value to be retrieved
+     * @return The mapped property's value
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not mapped
+     */
+    @Override
+    public Object get(final String name, final String key) {
+
+<span class="fc" id="L233">        final Object value = values.get(name);</span>
+<span class="pc bpc" id="L234" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L235">            throw new NullPointerException</span>
+                    (&quot;No mapped value for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+<span class="pc bpc" id="L237" title="1 of 2 branches missed.">        } else if (value instanceof Map) {</span>
+<span class="fc" id="L238">            return ((Map&lt;?, ?&gt;) value).get(key);</span>
+        } else {
+<span class="nc" id="L240">            throw new IllegalArgumentException</span>
+                    (&quot;Non-mapped property for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+        }
+
+    }
+
+
+    /**
+     * Return the &lt;code&gt;DynaClass&lt;/code&gt; instance that describes the set of
+     * properties available for this DynaBean.
+     *
+     * @return The associated DynaClass
+     */
+    @Override
+    public DynaClass getDynaClass() {
+
+<span class="fc" id="L256">        return this.dynaClass;</span>
+
+    }
+
+
+    /**
+     * Remove any existing value for the specified key on the
+     * specified mapped property.
+     *
+     * @param name Name of the property for which a value is to
+     *  be removed
+     * @param key Key of the value to be removed
+     *
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     */
+    @Override
+    public void remove(final String name, final String key) {
+
+<span class="fc" id="L275">        final Object value = values.get(name);</span>
+<span class="pc bpc" id="L276" title="1 of 2 branches missed.">        if (value == null) {</span>
+<span class="nc" id="L277">            throw new NullPointerException</span>
+                    (&quot;No mapped value for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+<span class="pc bpc" id="L279" title="1 of 2 branches missed.">        } else if (value instanceof Map) {</span>
+<span class="fc" id="L280">            ((Map&lt;?, ?&gt;) value).remove(key);</span>
+        } else {
+<span class="nc" id="L282">            throw new IllegalArgumentException</span>
+                    (&quot;Non-mapped property for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+        }
+
+<span class="fc" id="L286">    }</span>
+
+
+    /**
+     * Set the value of a simple property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws NullPointerException if an attempt is made to set a
+     *  primitive property to null
+     */
+    @Override
+    public void set(final String name, final Object value) {
+
+<span class="fc" id="L305">        final DynaProperty descriptor = getDynaProperty(name);</span>
+<span class="fc bfc" id="L306" title="All 2 branches covered.">        if (value == null) {</span>
+<span class="pc bpc" id="L307" title="1 of 2 branches missed.">            if (descriptor.getType().isPrimitive()) {</span>
+<span class="nc" id="L308">                throw new NullPointerException</span>
+                        (&quot;Primitive value for '&quot; + name + &quot;'&quot;);
+            }
+<span class="pc bpc" id="L311" title="1 of 2 branches missed.">        } else if (!isAssignable(descriptor.getType(), value.getClass())) {</span>
+<span class="nc" id="L312">            throw new ConversionException</span>
+                    (&quot;Cannot assign value of type '&quot; +
+<span class="nc" id="L314">                    value.getClass().getName() +</span>
+                    &quot;' to property '&quot; + name + &quot;' of type '&quot; +
+<span class="nc" id="L316">                    descriptor.getType().getName() + &quot;'&quot;);</span>
+        }
+<span class="fc" id="L318">        values.put(name, value);</span>
+
+<span class="fc" id="L320">    }</span>
+
+
+    /**
+     * Set the value of an indexed property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param index Index of the property to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not indexed
+     * @throws IndexOutOfBoundsException if the specified index
+     *  is outside the range of the underlying property
+     */
+    @Override
+    public void set(final String name, final int index, final Object value) {
+
+<span class="fc" id="L342">        final Object prop = values.get(name);</span>
+<span class="pc bpc" id="L343" title="1 of 2 branches missed.">        if (prop == null) {</span>
+<span class="nc" id="L344">            throw new NullPointerException</span>
+                    (&quot;No indexed value for '&quot; + name + &quot;[&quot; + index + &quot;]'&quot;);
+<span class="fc bfc" id="L346" title="All 2 branches covered.">        } else if (prop.getClass().isArray()) {</span>
+<span class="fc" id="L347">            Array.set(prop, index, value);</span>
+<span class="pc bpc" id="L348" title="1 of 2 branches missed.">        } else if (prop instanceof List) {</span>
+            try {
+                @SuppressWarnings(&quot;unchecked&quot;)
+                final
+                // This is safe to cast because list properties are always
+                // of type Object
+<span class="fc" id="L354">                List&lt;Object&gt; list = (List&lt;Object&gt;) prop;</span>
+<span class="fc" id="L355">                list.set(index, value);</span>
+<span class="nc" id="L356">            } catch (final ClassCastException e) {</span>
+<span class="nc" id="L357">                throw new ConversionException(e.getMessage());</span>
+<span class="fc" id="L358">            }</span>
+        } else {
+<span class="nc" id="L360">            throw new IllegalArgumentException</span>
+                    (&quot;Non-indexed property for '&quot; + name + &quot;[&quot; + index + &quot;]'&quot;);
+        }
+
+<span class="fc" id="L364">    }</span>
+
+
+    /**
+     * Set the value of a mapped property with the specified name.
+     *
+     * @param name Name of the property whose value is to be set
+     * @param key Key of the property to be set
+     * @param value Value to which this property is to be set
+     *
+     * @throws ConversionException if the specified value cannot be
+     *  converted to the type required for this property
+     * @throws IllegalArgumentException if there is no property
+     *  of the specified name
+     * @throws IllegalArgumentException if the specified property
+     *  exists, but is not mapped
+     */
+    @Override
+    public void set(final String name, final String key, final Object value) {
+
+<span class="fc" id="L384">        final Object prop = values.get(name);</span>
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">        if (prop == null) {</span>
+<span class="nc" id="L386">            throw new NullPointerException</span>
+                    (&quot;No mapped value for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+<span class="pc bpc" id="L388" title="1 of 2 branches missed.">        } else if (prop instanceof Map) {</span>
+            @SuppressWarnings(&quot;unchecked&quot;)
+            final
+            // This is safe to cast because mapped properties are always
+            // maps of types String -&gt; Object
+<span class="fc" id="L393">            Map&lt;String, Object&gt; map = (Map&lt;String, Object&gt;) prop;</span>
+<span class="fc" id="L394">            map.put(key, value);</span>
+<span class="fc" id="L395">        } else {</span>
+<span class="nc" id="L396">            throw new IllegalArgumentException</span>
+                    (&quot;Non-mapped property for '&quot; + name + &quot;(&quot; + key + &quot;)'&quot;);
+        }
+
+<span class="fc" id="L400">    }</span>
+
+
+    // ------------------------------------------------------ Protected Methods
+
+
+    /**
+     * Return the property descriptor for the specified property name.
+     *
+     * @param name Name of the property for which to retrieve the descriptor
+     * @return The property descriptor
+     *
+     * @throws IllegalArgumentException if this is not a valid property
+     *  name for our DynaClass
+     */
+    protected DynaProperty getDynaProperty(final String name) {
+
+<span class="fc" id="L417">        final DynaProperty descriptor = getDynaClass().getDynaProperty(name);</span>
+<span class="fc bfc" id="L418" title="All 2 branches covered.">        if (descriptor == null) {</span>
+<span class="fc" id="L419">            throw new IllegalArgumentException</span>
+                    (&quot;Invalid property name '&quot; + name + &quot;'&quot;);
+        }
+<span class="fc" id="L422">        return descriptor;</span>
+
+    }
+
+
+    /**
+     * Is an object of the source class assignable to the destination class?
+     *
+     * @param dest Destination class
+     * @param source Source class
+     * @return &lt;code&gt;true&lt;/code&gt; if the source class is assignable to the
+     * destination class, otherwise &lt;code&gt;false&lt;/code&gt;
+     */
+    protected boolean isAssignable(final Class&lt;?&gt; dest, final Class&lt;?&gt; source) {
+
+<span class="pc bpc" id="L437" title="11 of 34 branches missed.">        if (dest.isAssignableFrom(source) ||</span>
+                dest == Boolean.TYPE &amp;&amp; source == Boolean.class ||
+                dest == Byte.TYPE &amp;&amp; source == Byte.class ||
+                dest == Character.TYPE &amp;&amp; source == Character.class ||
+                dest == Double.TYPE &amp;&amp; source == Double.class ||
+                dest == Float.TYPE &amp;&amp; source == Float.class ||
+                dest == Integer.TYPE &amp;&amp; source == Integer.class ||
+                dest == Long.TYPE &amp;&amp; source == Long.class ||
+                dest == Short.TYPE &amp;&amp; source == Short.class) {
+<span class="fc" id="L446">            return true;</span>
+        }
+<span class="nc" id="L448">        return false;</span>
+
+    }
+
+
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>
