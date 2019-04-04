@@ -9,16 +9,20 @@ branchcoverage=[];
 mutationscore=[];
 %cxty
 cxty=[];
+%BMI
+BMI=[];
+%Change proneness
+changeproneness=[];
 
 
-plot(branchcoverage,cxty,'*r')
-xlabel("Branch Coverage")
-ylabel("Cyclomatic complexity")
+plot(changeproneness,BMI,'*r')
+xlabel("Change proneness")
+ylabel("BMI")
 %xlim([0 10])
 %ylim([0 10])
-%statementcoverage，branchcoverage，cxty，mutationscore。
-%Statement Coverage，Branch Coverage，Mutation Score，Cyclomatic complexity
+%statementcoverage，branchcoverage，cxty，mutationscore,BMI，Change proneness
+%Statement Coverage，Branch Coverage，Mutation Score，Cyclomatic complexity,BMI，changeproneness
 %皮尔森相关系数
-r_pearson=corr(branchcoverage,cxty,'type','pearson');
+r_pearson=corr(changeproneness,BMI,'type','pearson');
 %斯皮尔曼相关系数
-r_spearman=corr(branchcoverage,cxty,'type','spearman');
+r_spearman=corr(changeproneness,BMI,'type','spearman');
