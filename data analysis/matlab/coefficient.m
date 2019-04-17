@@ -22,7 +22,7 @@ ylabel("Change proneness")
 %ylim([0 10])
 %statementcoverage，branchcoverage，cxty，mutationscore,BMI，Change proneness
 %Statement Coverage，Branch Coverage，Mutation Score，Cyclomatic complexity,BMI，changeproneness
-%皮尔森相关系数
+%Pearson
 r_pearson=corr(BMI,changeproneness,'type','pearson');
-%斯皮尔曼相关系数
+%spearman
 r_spearman=corr(BMI,changeproneness,'type','spearman');
