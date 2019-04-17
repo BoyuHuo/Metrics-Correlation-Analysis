@@ -1,5 +1,5 @@
 echo "*-----------------------------------------------------------------*"
-echo "Welcome Soen Team D Change proness data collecting tool !"
+echo "Welcome Soen 6611 Team D Change proness data collecting tool !"
 echo "*-----------------------------------------------------------------*"
 echo "Please input the version 1 token:"
 read version1
