@@ -1,0 +1,33 @@
+<plugin>
+        <groupId>org.pitest</groupId>
+        <artifactId>pitest-maven</artifactId>
+        <version>1.4.3</version>
+
+        <executions>
+          <execution>
+            <id>pit-report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>mutationCoverage</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <targetClasses>
+            <param>org.apache.commons.codec.*</param>
+            <param>org.apache.commons.codec.binary.*</param>
+            <param>org.apache.commons.codec.digest.*</param>
+            <param>org.apache.commons.codec.language.*</param>
+            <param>org.apache.commons.codec.net.*</param>
+
+          </targetClasses>
+          <targetTests>
+            <param>org.apache.commons.codec.*</param>
+            <param>org.apache.commons.codec.binary.*</param>
+            <param>org.apache.commons.codec.digest.*</param>
+            <param>org.apache.commons.codec.language.*</param>
+            <param>org.apache.commons.codec.net.*</param>
+
+          </targetTests>
+        </configuration>
+      </plugin>
