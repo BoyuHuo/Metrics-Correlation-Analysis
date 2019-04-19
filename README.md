@@ -55,5 +55,5 @@ File Structure
   + paper.pdf
   + paper.docx
 
-**For Each Fold in this project, There is a readme.txt help you to know what is this fold use for!**
+**For Each Folder in this project, there is a readme.txt help you to know what this folder use for!**
     	
