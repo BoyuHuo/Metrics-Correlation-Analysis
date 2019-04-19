@@ -48,7 +48,6 @@ File Structure
   + Correction 1、2&4  `//correction plot and graph about m1 m2 m4`  
   + Correction 1、2&6  `//correction plot and graph about m1 m2 m6`  
   + Correction 5&6  `//correction plot and graph about m5 m6`  
-  + dataCollectOverview  `//data overview`  
   + matlab  `matlab code use for analysis`
 + document  `//include all the documents e.g. final paper, perposal...`  
   + perprosal.pdf
