@@ -11,10 +11,10 @@ Liangzhao Lin *40085480*
   
 File Structure  
 + data collecting related	`//include all the data collecting work e.g. script, configuration`  
-     		+ Metrics 1&2&3&4 configurtion file  `//jacoco configuration and pitest configuration`  
-     		+ Metrics 5 web url and filter condation  `//url for issue tracking system and the conditions`  
-     		+ Metrics 6 Script  `//scripts and version token`  
-     		- ReadMe.txt  `//detail description about this folder`
+  + Metrics 1&2&3&4 configurtion file  `//jacoco configuration and pitest configuration`  
+  + Metrics 5 web url and filter condation  `//url for issue tracking system and the conditions`  
+  + Metrics 6 Script  `//scripts and version token`  
+  + ReadMe.txt  `//detail description about this folder`
 + data  `//include all the data e.g. raw data, processed data`  
   + 1.Apache commons Lang 79.8K  `//include all the data e.g. raw data, processed data`  
     + BMI  `//data related to BMI for this project`  
