@@ -1,6 +1,6 @@
 # Metrics-Correlation-Analysis  
 Concordia 6611 Software Measurement, Team D  
-### Team Members  
+### Team Members (Alphabetical)
 
 Baiyu Huo *40076004*  
 Runsen Tian *40083090*  
